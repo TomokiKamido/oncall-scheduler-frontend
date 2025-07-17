@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理者権限修正ツール</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 5px;
+            font-size: 16px;
+        }
+        .btn:hover {
+            background: #0056b3;
+        }
+        .btn-danger {
+            background: #dc3545;
+        }
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        .btn-success {
+            background: #28a745;
+        }
+        .btn-success:hover {
+            background: #1e7e34;
+        }
+        .info-box {
+            background: #e9ecef;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 15px 0;
+            font-family: monospace;
+            font-size: 14px;
+            white-space: pre-wrap;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .status.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .status.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .status.info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 管理者権限修正ツール</h1>
+        <p>llb5yyuihdx@gmail.com ユーザーを管理者に設定するためのツールです。</p>
+        
+        <div id="status" class="status info">
+            ツールが初期化されました。現在の状況を確認してください。
+        </div>
+        
+        <h2>📋 現在の状況</h2>
+        <button class="btn" onclick="checkCurrentStatus()">現在の状況を確認</button>
+        <div id="currentStatus" class="info-box">クリックして現在の状況を確認してください</div>
+        
+        <h2>🔧 修正操作</h2>
+        <button class="btn btn-success" onclick="setAdminProfile()">管理者プロファイルを強制設定</button>
+        <button class="btn btn-danger" onclick="clearAllCache()">キャッシュを完全クリア</button>
+        <button class="btn" onclick="resetToOriginal()">元の状態に戻す</button>
+        
+        <h2>🌐 アプリケーション操作</h2>
+        <button class="btn" onclick="openMainApp()">メインアプリを開く</button>
+        <button class="btn" onclick="reloadMainApp()">メインアプリを再読み込み</button>
+        
+        <h2>📊 詳細情報</h2>
+        <div id="detailInfo" class="info-box">詳細情報が表示されます</div>
+    </div>
+
+    <script>
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+        }
+
+        function checkCurrentStatus() {
+            try {
+                // ローカルストレージの内容を確認
+                const profile = localStorage.getItem('oncall_user_profile');
+                const authData = localStorage.getItem('firebase:authUser:AIzaSyCtaJunSDSB0_bNaW0YELMmWP-5Zm6eKMM:[DEFAULT]');
+                
+                let statusText = '🔍 現在のローカルストレージ状況:\n\n';
+                
+                if (profile) {
+                    const parsed = JSON.parse(profile);
+                    statusText += `📋 プロファイル:\n`;
+                    statusText += `  Email: ${parsed.email}\n`;
+                    statusText += `  Role: ${parsed.role}\n`;
+                    statusText += `  UID: ${parsed.uid}\n`;
+                    statusText += `  部署: ${parsed.department}\n\n`;
+                } else {
+                    statusText += '❌ プロファイルが見つかりません\n\n';
+                }
+                
+                if (authData) {
+                    const auth = JSON.parse(authData);
+                    statusText += `🔐 認証情報:\n`;
+                    statusText += `  Email: ${auth.email}\n`;
+                    statusText += `  UID: ${auth.uid}\n\n`;
+                } else {
+                    statusText += '❌ 認証情報が見つかりません\n\n';
+                }
+                
+                // 全てのローカルストレージキーを表示
+                statusText += '🗄️ 全ローカルストレージキー:\n';
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    statusText += `  - ${key}\n`;
+                }
+                
+                document.getElementById('currentStatus').textContent = statusText;
+                showStatus('現在の状況を確認しました', 'info');
+            } catch (error) {
+                showStatus('状況確認中にエラーが発生しました: ' + error.message, 'error');
+            }
+        }
+
+        function setAdminProfile() {
+            try {
+                // 確実な管理者プロファイルを作成
+                const adminProfile = {
+                    uid: 'XYoLPR9Q9zPWJdyw0sjQA2qcg8q2',
+                    email: 'llb5yyuihdx@gmail.com',
+                    displayName: 'llb5yyuihdx_admin',
+                    role: 'admin',
+                    department: 'システム管理部',
+                    managedDepartments: [],
+                    isActive: true,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                };
+                
+                // ローカルストレージに保存
+                localStorage.setItem('oncall_user_profile', JSON.stringify(adminProfile));
+                
+                // 詳細情報を更新
+                updateDetailInfo('✅ 管理者プロファイル設定完了', adminProfile);
+                
+                showStatus('管理者プロファイルを設定しました。メインアプリを再読み込みしてください。', 'success');
+            } catch (error) {
+                showStatus('プロファイル設定中にエラーが発生しました: ' + error.message, 'error');
+            }
+        }
+
+        function clearAllCache() {
+            try {
+                // 関連するキャッシュをすべてクリア
+                const keysToRemove = [];
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key && (
+                        key.includes('oncall') || 
+                        key.includes('firebase') || 
+                        key.includes('user') ||
+                        key.includes('profile')
+                    )) {
+                        keysToRemove.push(key);
+                    }
+                }
+                
+                keysToRemove.forEach(key => localStorage.removeItem(key));
+                
+                updateDetailInfo('🗑️ クリアされたキー', keysToRemove);
+                showStatus(`${keysToRemove.length} 個のキャッシュエントリをクリアしました`, 'success');
+            } catch (error) {
+                showStatus('キャッシュクリア中にエラーが発生しました: ' + error.message, 'error');
+            }
+        }
+
+        function resetToOriginal() {
+            try {
+                // スタッフプロファイルに戻す
+                const staffProfile = {
+                    uid: 'XYoLPR9Q9zPWJdyw0sjQA2qcg8q2',
+                    email: 'llb5yyuihdx@gmail.com',
+                    displayName: 'llb5yyuihdx',
+                    role: 'staff',
+                    department: '',
+                    managedDepartments: [],
+                    isActive: true,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                };
+                
+                localStorage.setItem('oncall_user_profile', JSON.stringify(staffProfile));
+                updateDetailInfo('🔄 スタッフプロファイルに復元', staffProfile);
+                showStatus('元のスタッフ権限に戻しました', 'info');
+            } catch (error) {
+                showStatus('復元中にエラーが発生しました: ' + error.message, 'error');
+            }
+        }
+
+        function openMainApp() {
+            window.open('http://localhost:8080', '_blank');
+        }
+
+        function reloadMainApp() {
+            // メインアプリのタブがある場合は再読み込み
+            if (window.opener) {
+                window.opener.location.reload();
+                showStatus('メインアプリを再読み込みしました', 'success');
+            } else {
+                showStatus('メインアプリのタブが見つかりません。手動で再読み込みしてください。', 'error');
+            }
+        }
+
+        function updateDetailInfo(title, data) {
+            const detailDiv = document.getElementById('detailInfo');
+            detailDiv.textContent = title + ':\n\n' + JSON.stringify(data, null, 2);
+        }
+
+        // 初期化
+        window.onload = function() {
+            checkCurrentStatus();
+        };
+    </script>
+</body>
+</html>

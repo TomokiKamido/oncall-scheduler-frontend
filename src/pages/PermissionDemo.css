@@ -1,0 +1,391 @@
+/* 権限デモページ用CSS */
+.permission-demo {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.demo-controls {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 25px;
+  margin-bottom: 30px;
+}
+
+.role-selector h2 {
+  color: var(--text-primary);
+  margin-bottom: 10px;
+  font-size: 1.5rem;
+}
+
+.role-selector p {
+  color: var(--text-secondary);
+  margin-bottom: 25px;
+  font-size: 1rem;
+}
+
+.role-buttons {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 15px;
+  margin-bottom: 25px;
+}
+
+.role-button {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 20px;
+  border: 2px solid var(--border);
+  background: var(--surface-light);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.role-button:hover {
+  border-color: var(--role-color);
+  background: var(--surface);
+  transform: translateY(-2px);
+}
+
+.role-button.active {
+  border-color: var(--role-color);
+  background: var(--role-color);
+  color: white;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.role-button-icon {
+  width: 32px;
+  height: 32px;
+  color: var(--role-color);
+}
+
+.role-button.active .role-button-icon {
+  color: white;
+}
+
+.role-button-content {
+  flex: 1;
+}
+
+.role-button-label {
+  display: block;
+  font-weight: 600;
+  font-size: 1.1rem;
+  margin-bottom: 5px;
+  color: var(--text-primary);
+}
+
+.role-button.active .role-button-label {
+  color: white;
+}
+
+.role-button-desc {
+  display: block;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.role-button.active .role-button-desc {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.demo-tabs {
+  display: flex;
+  gap: 2px;
+  background: var(--surface-light);
+  padding: 4px;
+  border-radius: 8px;
+}
+
+.demo-tab {
+  flex: 1;
+  padding: 12px 20px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 500;
+}
+
+.demo-tab:hover {
+  background: var(--surface);
+  color: var(--text-primary);
+}
+
+.demo-tab.active {
+  background: var(--primary-color);
+  color: white;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
+.demo-content {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 25px;
+}
+
+.demo-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.demo-header h2 {
+  color: var(--text-primary);
+  margin: 0;
+  font-size: 1.3rem;
+}
+
+.current-role-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.current-role-badge.admin {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+}
+
+.current-role-badge.manager {
+  background: linear-gradient(135deg, #48bb78, #38a169);
+  color: white;
+}
+
+.current-role-badge.staff {
+  background: linear-gradient(135deg, #4299e1, #3182ce);
+  color: white;
+}
+
+.role-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.permission-comparison {
+  display: grid;
+  gap: 25px;
+  margin-bottom: 30px;
+}
+
+.permission-section {
+  background: var(--surface-light);
+  border-radius: 10px;
+  padding: 20px;
+}
+
+.permission-section h3 {
+  color: var(--text-primary);
+  margin-bottom: 15px;
+  font-size: 1.1rem;
+}
+
+.feature-list {
+  display: grid;
+  gap: 10px;
+}
+
+.feature-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 15px;
+  border-radius: 8px;
+  font-size: 0.95rem;
+}
+
+.feature-item.available {
+  background: rgba(72, 187, 120, 0.1);
+  border: 1px solid rgba(72, 187, 120, 0.3);
+  color: var(--text-primary);
+}
+
+.feature-item.disabled {
+  background: rgba(156, 163, 175, 0.1);
+  border: 1px solid rgba(156, 163, 175, 0.3);
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+
+.feature-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.feature-item.available .feature-icon {
+  color: #48bb78;
+}
+
+.feature-item.disabled .feature-icon {
+  color: #9ca3af;
+}
+
+.data-visibility {
+  background: var(--surface-light);
+  border-radius: 10px;
+  padding: 20px;
+}
+
+.data-visibility h3 {
+  color: var(--text-primary);
+  margin-bottom: 15px;
+  font-size: 1.1rem;
+}
+
+.visibility-info {
+  display: grid;
+  gap: 15px;
+}
+
+.visibility-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 15px;
+  padding: 15px;
+  border-radius: 8px;
+}
+
+.visibility-item.admin {
+  background: rgba(102, 126, 234, 0.1);
+  border: 1px solid rgba(102, 126, 234, 0.3);
+}
+
+.visibility-item.manager {
+  background: rgba(72, 187, 120, 0.1);
+  border: 1px solid rgba(72, 187, 120, 0.3);
+}
+
+.visibility-item.staff {
+  background: rgba(66, 153, 225, 0.1);
+  border: 1px solid rgba(66, 153, 225, 0.3);
+}
+
+.visibility-icon {
+  width: 24px;
+  height: 24px;
+  margin-top: 2px;
+}
+
+.visibility-item.admin .visibility-icon {
+  color: #667eea;
+}
+
+.visibility-item.manager .visibility-icon {
+  color: #48bb78;
+}
+
+.visibility-item.staff .visibility-icon {
+  color: #4299e1;
+}
+
+.visibility-item strong {
+  display: block;
+  color: var(--text-primary);
+  margin-bottom: 5px;
+  font-size: 1rem;
+}
+
+.visibility-item p {
+  color: var(--text-secondary);
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.ui-demo-header {
+  text-align: center;
+  margin-bottom: 25px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.ui-demo-header h3 {
+  color: var(--text-primary);
+  margin-bottom: 8px;
+  font-size: 1.2rem;
+}
+
+.ui-demo-header p {
+  color: var(--text-secondary);
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+/* レスポンシブ対応 */
+@media (max-width: 768px) {
+  .permission-demo {
+    padding: 15px;
+  }
+
+  .role-buttons {
+    grid-template-columns: 1fr;
+  }
+
+  .demo-header {
+    flex-direction: column;
+    gap: 15px;
+    align-items: stretch;
+    text-align: center;
+  }
+
+  .permission-comparison {
+    grid-template-columns: 1fr;
+  }
+
+  .role-button {
+    padding: 15px;
+  }
+
+  .role-button-icon {
+    width: 28px;
+    height: 28px;
+  }
+
+  .demo-tabs {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 480px) {
+  .permission-demo {
+    padding: 10px;
+  }
+
+  .demo-controls,
+  .demo-content {
+    padding: 20px;
+  }
+
+  .role-button {
+    flex-direction: column;
+    text-align: center;
+    gap: 10px;
+  }
+
+  .feature-item {
+    padding: 10px 12px;
+    font-size: 0.9rem;
+  }
+
+  .visibility-item {
+    flex-direction: column;
+    text-align: center;
+    gap: 10px;
+  }
+}

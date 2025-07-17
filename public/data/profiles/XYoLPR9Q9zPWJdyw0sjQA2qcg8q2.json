@@ -1,0 +1,11 @@
+{
+  "uid": "XYoLPR9Q9zPWJdyw0sjQA2qcg8q2",
+  "email": "llb5yyuihdx@gmail.com",
+  "displayName": "llb5yyuihdx_admin",
+  "role": "admin",
+  "department": "システム管理部",
+  "managedDepartments": ["dept_001", "dept_002", "dept_003"],
+  "isActive": true,
+  "createdAt": "2025-06-22T08:29:31.014Z",
+  "updatedAt": "2025-06-22T08:29:31.018Z"
+}

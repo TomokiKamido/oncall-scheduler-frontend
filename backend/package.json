@@ -1,0 +1,17 @@
+{
+  "name": "oncall-scheduler-backend",
+  "version": "1.0.0",
+  "description": "Backend server for oncall-scheduler",
+  "main": "api-server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node api-server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^17.0.1",
+    "express": "^4.18.2",
+    "firebase-admin": "^13.4.0",
+    "mongodb": "^5.7.0"
+  }
+}

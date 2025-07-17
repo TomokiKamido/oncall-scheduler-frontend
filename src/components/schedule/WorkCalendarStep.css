@@ -1,0 +1,644 @@
+.work-calendar-step {
+  padding: 20px;
+}
+
+.step-description {
+  color: #666;
+  margin-bottom: 20px;
+  font-size: 14px;
+}
+
+.no-work-types {
+  text-align: center;
+  padding: 40px;
+  color: #999;
+  border: 2px dashed #ddd;
+  border-radius: 8px;
+}
+
+/* 一括操作パネル */
+.bulk-operations {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.bulk-operations h4 {
+  margin: 0 0 12px 0;
+  color: #333;
+  font-size: 16px;
+}
+
+.bulk-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.bulk-control-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  background: white;
+  border-radius: 6px;
+  border: 1px solid #e9ecef;
+}
+
+.work-type-indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.work-type-name {
+  min-width: 80px;
+  font-weight: 500;
+}
+
+.bulk-buttons {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.bulk-btn {
+  padding: 4px 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: white;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s;
+}
+
+.bulk-btn.apply-all {
+  border-color: #007bff;
+  color: #007bff;
+}
+
+.bulk-btn.apply-all:hover {
+  background: #007bff;
+  color: white;
+}
+
+.bulk-btn.apply-weekdays {
+  border-color: #28a745;
+  color: #28a745;
+}
+
+.bulk-btn.apply-weekdays:hover {
+  background: #28a745;
+  color: white;
+}
+
+.bulk-btn.apply-weekends {
+  border-color: #ffc107;
+  color: #856404;
+}
+
+.bulk-btn.apply-weekends:hover {
+  background: #ffc107;
+  color: #856404;
+}
+
+.bulk-btn.clear-all {
+  border-color: #dc3545;
+  color: #dc3545;
+}
+
+.bulk-btn.clear-all:hover {
+  background: #dc3545;
+  color: white;
+}
+
+/* カレンダー */
+.calendar-container {
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+
+.calendar-header {
+  background: #f8f9fa;
+  padding: 16px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.work-types-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: white;
+  border-radius: 6px;
+  border: 1px solid #e9ecef;
+}
+
+.legend-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.legend-name {
+  font-weight: 500;
+}
+
+.legend-time {
+  color: #666;
+  font-size: 12px;
+}
+
+/* 曜日ヘッダー */
+.calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  background: #f8f9fa;
+  border-bottom: 2px solid #e9ecef;
+}
+
+.weekday-header {
+  padding: 12px;
+  text-align: center;
+  font-weight: 600;
+  color: #495057;
+  border-right: 1px solid #e9ecef;
+}
+
+.weekday-header:first-child {
+  color: #dc2626; /* 日曜日 - 赤 */
+  font-weight: 700;
+}
+
+.weekday-header:last-child {
+  color: #1e40af; /* 土曜日 - 青 */
+  font-weight: 700;
+}
+
+.weekday-header:last-child {
+  border-right: none;
+}
+
+/* 週カレンダーグリッド */
+.calendar-weeks {
+  border: 1px solid #e9ecef;
+  border-top: none;
+}
+
+.calendar-week {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  border-bottom: 1px solid #e9ecef;
+}
+
+.calendar-week:last-child {
+  border-bottom: none;
+}
+
+.calendar-day {
+  background: white;
+  padding: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-height: 100px;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid #e9ecef;
+  position: relative;
+}
+
+.calendar-day.saturday {
+  background-color: #eff6ff !important; /* 薄い青 */
+  border-color: #3b82f6;
+}
+
+.calendar-day.saturday .date-header {
+  color: #1e40af; /* 濃い青 */
+  font-weight: 600;
+}
+
+.calendar-day.sunday {
+  background-color: #fef2f2 !important; /* 薄い赤 */
+  border-color: #ef4444;
+}
+
+.calendar-day.sunday .date-header {
+  color: #dc2626; /* 濃い赤 */
+  font-weight: 600;
+}
+
+.calendar-day.holiday {
+  background-color: #fef3c7 !important; /* 薄い黄 */
+  border-color: #f59e0b;
+  border-width: 2px;
+}
+
+.calendar-day.holiday .date-header {
+  color: #92400e; /* 濃い黄 */
+  font-weight: 700;
+}
+
+.date-header {
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+
+.work-types-selection {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex-grow: 1;
+}
+
+.work-type-button {
+  padding: 4px 6px;
+  border: 1px solid;
+  border-radius: 3px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 500;
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.work-type-button:hover {
+  opacity: 0.8;
+}
+
+.work-type-button.selected {
+  font-weight: 600;
+}
+
+.selected-count {
+  margin-top: 4px;
+  font-size: 10px;
+  color: #666;
+  text-align: center;
+  padding: 1px 4px;
+  background: #e9ecef;
+  border-radius: 8px;
+}
+
+/* サマリー */
+.calendar-summary {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.calendar-summary h4 {
+  margin: 0 0 12px 0;
+  color: #333;
+  font-size: 16px;
+}
+
+.summary-stats {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.stat-item {
+  display: flex;
+  gap: 8px;
+}
+
+.stat-label {
+  color: #666;
+  font-size: 14px;
+}
+
+.stat-value {
+  font-weight: 600;
+  color: #333;
+}
+
+.work-type-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.summary-indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.summary-name {
+  min-width: 80px;
+  color: #333;
+}
+
+.summary-count {
+  font-weight: 600;
+  color: #007bff;
+}
+
+/* 祝日設定セクション */
+.holiday-settings-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.holiday-settings-section h4 {
+  margin: 0 0 16px 0;
+  color: var(--text);
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.holiday-actions {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.btn-secondary, .btn-primary {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border: 1px solid;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-secondary {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.btn-secondary:hover {
+  background: var(--bg-hover);
+  border-color: var(--primary-color);
+}
+
+.btn-primary {
+  background: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
+}
+
+.btn-primary:hover {
+  background: var(--primary-hover);
+}
+
+.btn-primary:disabled {
+  background: var(--bg-muted);
+  color: var(--text-muted);
+  border-color: var(--border);
+  cursor: not-allowed;
+}
+
+/* 祝日一覧 */
+.holidays-list {
+  margin-top: 16px;
+}
+
+.holidays-list h5 {
+  margin: 0 0 12px 0;
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.holiday-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+
+.holiday-info {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.holiday-name {
+  font-weight: 500;
+  color: var(--text);
+}
+
+.holiday-date {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.holiday-type {
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.holiday-type.national {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.holiday-type.hospital {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.holiday-type.department {
+  background: #f3e8ff;
+  color: #7c3aed;
+}
+
+.btn-danger-small {
+  padding: 4px 8px;
+  background: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-danger-small:hover {
+  background: #fecaca;
+  border-color: #f87171;
+}
+
+/* 祝日追加モーダル */
+.holiday-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.holiday-modal {
+  background: var(--surface);
+  border-radius: 8px;
+  padding: 24px;
+  width: 90%;
+  max-width: 500px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.holiday-modal h4 {
+  margin: 0 0 20px 0;
+  color: var(--text);
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-group label {
+  color: var(--text);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.form-group input,
+.form-group select {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--input-bg);
+  color: var(--text);
+  font-size: 0.875rem;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.checkbox-label {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+/* レスポンシブ */
+@media (max-width: 768px) {
+  .calendar-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  }
+  
+  .bulk-control-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .bulk-buttons {
+    margin-left: 0;
+    flex-wrap: wrap;
+  }
+  
+  .work-types-legend {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .summary-stats {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .holiday-actions {
+    flex-direction: column;
+  }
+  
+  .holiday-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .holiday-info {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  
+  .holiday-modal {
+    width: 95%;
+    padding: 16px;
+  }
+  
+  .modal-actions {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 480px) {
+  .calendar-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .bulk-btn {
+    font-size: 11px;
+    padding: 3px 8px;
+  }
+}

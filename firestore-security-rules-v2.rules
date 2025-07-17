@@ -1,0 +1,168 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // departments/{dept}/requests/{month}/{uid} のセキュリティルール
+    match /departments/{dept}/requests/{month}/{uid} {
+      
+      // CREATE: 本人のみ許可
+      allow create: if request.auth != null 
+                    && request.auth.uid == uid
+                    && isValidRequestData();
+      
+      // READ: Custom Claims の role が "chief" かつ chiefOf に dept が含まれる場合のみ許可
+      allow read: if request.auth != null 
+                  && hasChiefRole() 
+                  && isDepartmentChief(dept);
+      
+      // UPDATE, DELETE: 禁止（明示的に拒否）
+      allow update, delete: if false;
+    }
+    
+    // roleRequests コレクション（ロール変更申請用）
+    match /roleRequests/{uid} {
+      // 作成は認証済みユーザーのみ（本人でなくても管理者が代理作成可能）
+      allow create: if request.auth != null 
+                    && isValidRoleRequestData();
+      
+      // 読み取りは本人または管理者のみ
+      allow read: if request.auth != null 
+                  && (request.auth.uid == uid || isAdmin());
+      
+      // 更新は管理者のみ（承認/拒否処理）
+      allow update: if request.auth != null 
+                    && isAdmin()
+                    && isValidRoleRequestUpdate();
+      
+      // 削除は管理者のみ
+      allow delete: if request.auth != null 
+                    && isAdmin();
+    }
+    
+    // userProfiles コレクション（既存システムとの互換性）
+    match /userProfiles/{uid} {
+      // 読み取りは本人または管理者
+      allow read: if request.auth != null 
+                  && (request.auth.uid == uid || isAdmin());
+      
+      // 作成・更新は管理者のみ
+      allow create, update: if request.auth != null 
+                            && isAdmin();
+      
+      // 削除は禁止
+      allow delete: if false;
+    }
+    
+    // departments コレクション
+    match /departments/{deptId} {
+      // 読み取りは認証済みユーザー全員
+      allow read: if request.auth != null;
+      
+      // 作成・更新・削除は管理者のみ
+      allow create, update, delete: if request.auth != null 
+                                    && isAdmin();
+    }
+    
+    // その他のコレクションは既存ルールを維持
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+  
+  // ========== ヘルパー関数 ==========
+  
+  // 管理者権限チェック
+  function isAdmin() {
+    return request.auth.token.role == 'admin';
+  }
+  
+  // 所属長権限チェック
+  function hasChiefRole() {
+    return request.auth.token.role == 'chief' || request.auth.token.role == 'manager';
+  }
+  
+  // 特定部署の所属長かチェック
+  function isDepartmentChief(dept) {
+    return request.auth.token.chiefOf is list 
+           && dept in request.auth.token.chiefOf;
+  }
+  
+  // リクエストデータのバリデーション
+  function isValidRequestData() {
+    return request.resource.data.keys().hasAll(['requestType', 'requestDate', 'createdAt'])
+           && request.resource.data.requestType is string
+           && request.resource.data.requestDate is timestamp
+           && request.resource.data.createdAt is timestamp
+           && request.resource.data.createdAt == request.time;
+  }
+  
+  // ロール申請データのバリデーション
+  function isValidRoleRequestData() {
+    let data = request.resource.data;
+    return data.keys().hasAll(['role', 'requestedBy', 'requestedAt', 'status'])
+           && data.role in ['admin', 'manager', 'staff']
+           && data.requestedBy is string
+           && data.requestedAt is timestamp
+           && data.status == 'pending'
+           && data.requestedAt == request.time;
+  }
+  
+  // ロール申請更新データのバリデーション
+  function isValidRoleRequestUpdate() {
+    let data = request.resource.data;
+    let existingData = resource.data;
+    
+    // 変更可能なフィールドのみ許可
+    return data.diff(existingData).affectedKeys().hasOnly(['status', 'reviewedBy', 'reviewedAt', 'reviewNote'])
+           && (data.status == 'approved' || data.status == 'rejected')
+           && data.reviewedBy == request.auth.uid
+           && data.reviewedAt == request.time;
+  }
+}
+
+/*
+=== セキュリティルール説明 ===
+
+1. /departments/{dept}/requests/{month}/{uid}
+   - CREATE: 本人のみ可能（request.auth.uid == uid）
+   - READ: Custom Claims で role == "chief"|"manager" かつ chiefOf 配列に dept が含まれる場合のみ
+   - UPDATE/DELETE: 完全に禁止
+
+2. /roleRequests/{uid}
+   - CREATE: 認証済みユーザー（管理者による代理申請も可能）
+   - READ: 本人または管理者
+   - UPDATE: 管理者のみ（承認/拒否処理）
+   - DELETE: 管理者のみ
+
+3. バリデーション関数
+   - isValidRequestData(): リクエストデータの形式チェック
+   - isValidRoleRequestData(): ロール申請データの形式チェック
+   - isValidRoleRequestUpdate(): 更新時の変更可能フィールドをチェック
+
+4. Custom Claims 活用
+   - request.auth.token.role でロールを取得
+   - request.auth.token.chiefOf で管理部署の配列を取得
+   - サーバー側での Claims 更新により、リアルタイムで権限が反映
+
+=== 使用例 ===
+
+// ✅ 許可される操作
+// 1. スタッフが自分の申請を作成
+add(/departments/dept_001/requests/2025-06/user123, {
+  requestType: "shift_change",
+  requestDate: timestamp,
+  createdAt: timestamp
+});
+
+// 2. 部署責任者が部下の申請を閲覧（chiefOf に dept_001 が含まれる場合）
+get(/departments/dept_001/requests/2025-06/user123);
+
+// ❌ 拒否される操作
+// 1. 他人の申請を作成
+add(/departments/dept_001/requests/2025-06/other_user, {...});
+
+// 2. 管理外部署の申請を閲覧
+get(/departments/dept_002/requests/2025-06/user123); // chiefOf に dept_002 が含まれない場合
+
+*/

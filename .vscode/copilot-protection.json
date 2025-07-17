@@ -1,0 +1,27 @@
+{
+  "protectionLevel": "MAXIMUM",
+  "restrictions": {
+    "fileModification": {
+      "allowedPatterns": [],
+      "deniedPatterns": ["src/**/*.tsx", "src/**/*.ts"],
+      "requireExplicitPermission": true
+    },
+    "architecturalChanges": {
+      "allowed": false,
+      "stateManagementChanges": false,
+      "componentStructureChanges": false
+    },
+    "multiFileChanges": {
+      "allowed": false,
+      "maxFilesPerRequest": 1
+    },
+    "autoSuggestions": {
+      "enabled": false,
+      "codeCompletion": false,
+      "refactoring": false
+    }
+  },
+  "violationResponse": "TERMINATE_SESSION",
+  "lastUpdated": "2025-06-21T00:00:00Z",
+  "reason": "Prevent unauthorized file modifications and architectural changes"
+}

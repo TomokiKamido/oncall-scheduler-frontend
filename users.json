@@ -1,0 +1,42 @@
+{"users": [
+{
+  "localId": "E8589erezuOiWin8p0HSLkSK2Ou1",
+  "email": "staff@oncall-scheduler.com",
+  "emailVerified": false,
+  "passwordHash": "gfwPMF1tYAdhwvlUIZ8vKrBp7O/ZVxVF5xmhKESTiX20sobNaS+Wa9XhItXqPyo0aSISFE/7uXvz+WugjBfVEg==",
+  "salt": "taW+y56CIaGDPg==",
+  "createdAt": "1750254017307",
+  "disabled": false,
+  "providerUserInfo": []
+},
+{
+  "localId": "J4dyb8DmRVZCa0vTLrRj5MHgnKB3",
+  "email": "manager@oncall-scheduler.com",
+  "emailVerified": false,
+  "passwordHash": "yL4UWmbHCi4P7u0pJgzCE00s5x6Gw1wfZm1MCwieXKMLWBvaQ+gwKG3Yb32bCYRqiGKW7NFbkuLcX/FTGJkX7w==",
+  "salt": "iopBxJqB6LaPJQ==",
+  "createdAt": "1750253992808",
+  "disabled": false,
+  "providerUserInfo": []
+},
+{
+  "localId": "XYoLPR9Q9zPWJdyw0sjQA2qcg8q2",
+  "email": "llb5yyuihdx@gmail.com",
+  "emailVerified": false,
+  "passwordHash": "XWPFkXFQ04qiIS0bl+4lclvpadWP3/V3e93isXXb35JAyA1gqtrX5Fhri12mAZiIw+ErDdXGl3wUiHeGi1AUeA==",
+  "salt": "8wv2aoAF1CotWQ==",
+  "lastSignedInAt": "1750331559546",
+  "createdAt": "1750302469040",
+  "providerUserInfo": []
+},
+{
+  "localId": "qA0JJfqHVbYw70f9N79iQZTMd8U2",
+  "email": "admin@oncall-scheduler.com",
+  "emailVerified": false,
+  "passwordHash": "9Nfruyj66IUUD5dnHcKcMDbZJIA5N8deT5livDHTtePRbFPHT5sfVyqBmSBvwLiNEkcO1Od+65f3cYJsLzHvsw==",
+  "salt": "4GNS+fWVod5+Wg==",
+  "lastSignedInAt": "1750332089287",
+  "createdAt": "1750253962806",
+  "disabled": false,
+  "providerUserInfo": []
+}]}

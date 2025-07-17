@@ -1,0 +1,24 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.resetPermissionSystem = exports.syncUserRoles = exports.getActualUserRoles = exports.setCustomUserClaimsCallable = exports.setCustomUserClaims = exports.syncAuthUsers = exports.listUsers = exports.setAdminBatchHTTP = exports.setRoleHTTP = exports.setAdminBatch = exports.setRole = exports.testRoleRequest = exports.processRoleRequest = void 0;
+const roleRequests_1 = require("./roleRequests");
+Object.defineProperty(exports, "processRoleRequest", { enumerable: true, get: function () { return roleRequests_1.processRoleRequest; } });
+Object.defineProperty(exports, "testRoleRequest", { enumerable: true, get: function () { return roleRequests_1.testRoleRequest; } });
+const setRole_1 = require("./setRole");
+Object.defineProperty(exports, "setRole", { enumerable: true, get: function () { return setRole_1.setRole; } });
+Object.defineProperty(exports, "setAdminBatch", { enumerable: true, get: function () { return setRole_1.setAdminBatch; } });
+const setRoleHTTP_1 = require("./setRoleHTTP");
+Object.defineProperty(exports, "setRoleHTTP", { enumerable: true, get: function () { return setRoleHTTP_1.setRoleHTTP; } });
+Object.defineProperty(exports, "setAdminBatchHTTP", { enumerable: true, get: function () { return setRoleHTTP_1.setAdminBatchHTTP; } });
+const userManagement_1 = require("./userManagement");
+Object.defineProperty(exports, "listUsers", { enumerable: true, get: function () { return userManagement_1.listUsers; } });
+Object.defineProperty(exports, "syncAuthUsers", { enumerable: true, get: function () { return userManagement_1.syncAuthUsers; } });
+const setCustomUserClaims_1 = require("./setCustomUserClaims");
+Object.defineProperty(exports, "setCustomUserClaims", { enumerable: true, get: function () { return setCustomUserClaims_1.setCustomUserClaims; } });
+Object.defineProperty(exports, "setCustomUserClaimsCallable", { enumerable: true, get: function () { return setCustomUserClaims_1.setCustomUserClaimsCallable; } });
+const roleSyncFunctions_1 = require("./roleSyncFunctions");
+Object.defineProperty(exports, "getActualUserRoles", { enumerable: true, get: function () { return roleSyncFunctions_1.getActualUserRoles; } });
+Object.defineProperty(exports, "syncUserRoles", { enumerable: true, get: function () { return roleSyncFunctions_1.syncUserRoles; } });
+const resetPermissionSystem_1 = require("./resetPermissionSystem");
+Object.defineProperty(exports, "resetPermissionSystem", { enumerable: true, get: function () { return resetPermissionSystem_1.resetPermissionSystem; } });
+//# sourceMappingURL=index.js.map

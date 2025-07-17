@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OnCall Pro - テストページ</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            margin: 0;
+            padding: 40px 20px;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            text-align: center;
+            max-width: 600px;
+        }
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .gradient-text {
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        p {
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
+            opacity: 0.9;
+        }
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 3rem;
+        }
+        .feature {
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+        }
+        .feature h3 {
+            margin-top: 0;
+            color: #4ecdc4;
+        }
+        .status {
+            background: rgba(255,255,255,0.2);
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 2rem;
+        }
+        .success {
+            color: #4ecdc4;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>OnCall <span class="gradient-text">Pro</span></h1>
+        <p>オンコールスケジューラーが正常に動作しています</p>
+        
+        <div class="status">
+            <div class="success">✅ サーバー接続成功</div>
+            <p>アプリケーションの準備が完了しました</p>
+        </div>
+
+        <div class="features">
+            <div class="feature">
+                <h3>🎯 勤務割り当て</h3>
+                <p>スタッフに公平に勤務を自動割り当て<br>田中さんは月1回まで制限</p>
+            </div>
+            <div class="feature">
+                <h3>📅 スケジュール管理</h3>
+                <p>カレンダービューで直感的な<br>スケジュール管理</p>
+            </div>
+            <div class="feature">
+                <h3>👥 スタッフ管理</h3>
+                <p>メンバー情報の追加・編集・検索<br>状態管理機能</p>
+            </div>
+            <div class="feature">
+                <h3>📊 統計・分析</h3>
+                <p>勤務バランスと稼働状況の<br>詳細な分析データ</p>
+            </div>
+        </div>
+
+        <div style="margin-top: 3rem; font-size: 0.9rem; opacity: 0.7;">
+            <p>🚀 サーバーが正常に起動している場合、この画面が表示されます</p>
+            <p>React開発サーバーに問題がある場合の代替表示です</p>
+        </div>
+    </div>
+
+    <script>
+        // 簡易的な動作確認
+        console.log('OnCall Pro - テストページが読み込まれました');
+        
+        // ページ読み込み完了時の処理
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM読み込み完了');
+            
+            // 5秒後にメッセージ表示
+            setTimeout(function() {
+                const statusDiv = document.querySelector('.status');
+                const newP = document.createElement('p');
+                newP.innerHTML = '📱 React アプリケーションの代替表示として動作中';
+                newP.style.marginTop = '10px';
+                newP.style.fontSize = '0.9rem';
+                statusDiv.appendChild(newP);
+            }, 5000);
+        });
+    </script>
+</body>
+</html>

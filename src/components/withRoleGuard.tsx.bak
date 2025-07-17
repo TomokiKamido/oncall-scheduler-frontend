@@ -1,0 +1,187 @@
+'use client';
+
+import { ComponentType, useEffect, useState, useRef } from 'react';
+import { useRouter } from 'next/navigation';
+import { User, getIdTokenResult } from 'firebase/auth';
+import { useAuthState } from 'react-firebase-hooks/auth';
+import { auth } from '@/lib/firebase'; // Firebase auth インスタンスのパス
+
+interface CustomClaims {
+  role?: 'admin' | 'manager' | 'staff' | null;
+  chiefOf?: string[] | null;
+  hosp?: string | null;
+  updatedAt?: number | null;
+}
+
+interface WithRoleGuardProps {
+  requiredRole: 'admin' | 'manager' | 'staff';
+  allowedRoles?: ('admin' | 'manager' | 'staff')[];
+  redirectPath?: string;
+}
+
+/**
+ * ロールベースのアクセス制御を行う HOC
+ * getIdTokenResult(true) はマウント時に一度だけ実行
+ */
+export function withRoleGuard<P extends object>(
+  WrappedComponent: ComponentType<P>,
+  { requiredRole, allowedRoles, redirectPath = '/403' }: WithRoleGuardProps
+) {
+  const RoleGuardedComponent = (props: P) => {
+    const [user, loading, authError] = useAuthState(auth);
+    const [claims, setClaims] = useState<CustomClaims | null>(null);
+    const [claimsLoading, setClaimsLoading] = useState(true);
+    const [claimsError, setClaimsError] = useState<Error | null>(null);
+    const router = useRouter();
+    const hasFetchedClaims = useRef(false);
+
+    // Claims を取得する関数（マウント時に一度だけ実行）
+    useEffect(() => {
+      const fetchClaims = async (currentUser: User) => {
+        if (hasFetchedClaims.current) return;
+        
+        try {
+          setClaimsLoading(true);
+          setClaimsError(null);
+          
+          console.log('🔑 Custom Claims 取得中...（強制更新）');
+          
+          // ID トークンを強制更新して Claims を取得
+          const idTokenResult = await getIdTokenResult(currentUser, true);
+          const userClaims = idTokenResult.claims;
+          
+          const claimsData: CustomClaims = {
+            role: (userClaims.role as 'admin' | 'manager' | 'staff') || null,
+            chiefOf: (userClaims.chiefOf as string[]) || null,
+            hosp: (userClaims.hosp as string) || null,
+            updatedAt: (userClaims.updatedAt as number) || null
+          };
+          
+          console.log('✅ Custom Claims 取得完了:', claimsData);
+          setClaims(claimsData);
+          hasFetchedClaims.current = true;
+          
+        } catch (error) {
+          console.error('❌ Custom Claims 取得エラー:', error);
+          setClaimsError(error as Error);
+        } finally {
+          setClaimsLoading(false);
+        }
+      };
+
+      if (user && !loading && !authError) {
+        fetchClaims(user);
+      } else if (!user && !loading) {
+        // ユーザーが認証されていない場合
+        setClaimsLoading(false);
+        setClaims(null);
+        hasFetchedClaims.current = false;
+      }
+    }, [user, loading, authError]);
+
+    // ロール判定とリダイレクト
+    useEffect(() => {
+      // 認証やClaims取得中はリダイレクトしない
+      if (loading || claimsLoading || authError || claimsError) {
+        return;
+      }
+
+      // ユーザーが認証されていない場合はログインページにリダイレクト
+      if (!user) {
+        console.log('❌ 未認証ユーザー - ログインページにリダイレクト');
+        router.push('/login');
+        return;
+      }
+
+      // Claims が取得できていない場合は403にリダイレクト
+      if (!claims || !claims.role) {
+        console.log('❌ Custom Claims が取得できません - 403ページにリダイレクト');
+        router.push(redirectPath);
+        return;
+      }
+
+      // 許可されたロールのリストを作成
+      const roles = allowedRoles || [requiredRole];
+      
+      // ユーザーのロールが許可されているかチェック
+      if (!roles.includes(claims.role)) {
+        console.log(`❌ 権限不足: 必要な権限=${roles.join('|')}, ユーザー権限=${claims.role}`);
+        router.push(redirectPath);
+        return;
+      }
+
+      console.log(`✅ 権限チェック通過: ユーザー権限=${claims.role}`);
+    }, [user, claims, loading, claimsLoading, authError, claimsError, requiredRole, allowedRoles, redirectPath, router]);
+
+    // ローディング状態
+    if (loading || claimsLoading) {
+      return (
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+          <span className="ml-4 text-lg">認証情報を確認中...</span>
+        </div>
+      );
+    }
+
+    // エラー状態
+    if (authError || claimsError) {
+      return (
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold text-red-600 mb-4">認証エラー</h2>
+            <p className="text-gray-600">
+              {authError?.message || claimsError?.message || '認証に失敗しました'}
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    // 未認証の場合は何も表示しない（リダイレクト処理中）
+    if (!user) {
+      return null;
+    }
+
+    // Claims が取得できていない場合は何も表示しない（リダイレクト処理中）
+    if (!claims || !claims.role) {
+      return null;
+    }
+
+    // 権限チェック通過後、コンポーネントを表示
+    const roles = allowedRoles || [requiredRole];
+    if (!roles.includes(claims.role)) {
+      return null; // リダイレクト処理中
+    }
+
+    // 全てのチェックを通過した場合のみコンポーネントを表示
+    return <WrappedComponent {...props} />;
+  };
+
+  // デバッグ用の表示名を設定
+  RoleGuardedComponent.displayName = `withRoleGuard(${WrappedComponent.displayName || WrappedComponent.name})`;
+
+  return RoleGuardedComponent;
+}
+
+/**
+ * 使用例:
+ * 
+ * // 管理者のみアクセス可能
+ * const AdminOnlyPage = withRoleGuard(MyAdminPage, { 
+ *   requiredRole: 'admin' 
+ * });
+ * 
+ * // 管理者または所属長がアクセス可能
+ * const ManagerPage = withRoleGuard(MyManagerPage, { 
+ *   requiredRole: 'manager',
+ *   allowedRoles: ['admin', 'manager']
+ * });
+ * 
+ * // カスタムリダイレクトパス
+ * const CustomPage = withRoleGuard(MyPage, { 
+ *   requiredRole: 'staff',
+ *   redirectPath: '/unauthorized'
+ * });
+ */
+
+export type { CustomClaims, WithRoleGuardProps };

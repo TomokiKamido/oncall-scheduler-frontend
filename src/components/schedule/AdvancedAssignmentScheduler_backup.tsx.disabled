@@ -1,0 +1,1317 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  Save, RefreshCw, User, Plus, Trash2, 
+  AlertCircle, X, Edit3, Target, Zap,
+  Calendar, Table, Users
+} from 'lucide-react';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  useDroppable,
+  DragOverlay,
+  DragStartEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import {
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { Staff, Assignment } from '../../types';
+import { generateDateRange, formatDateJapanese } from '../../utils/dateUtils';
+import './AdvancedAssignmentScheduler.css';
+
+interface AdvancedAssignmentSchedulerProps {
+  staffMembers: Staff[];
+  onAssignmentsChange: (assignments: Assignment[]) => void;
+}
+
+// シフトタイプの型定義
+interface ShiftType {
+  id: string;
+  name: string;
+  min: number;
+  max: number;
+}
+
+// カスタムルールの型定義
+interface CustomRule {
+  id: string;
+  type: 'avoidGroupTogether' | 'requireMinimumMembers';
+  description: string;
+  config: {
+    group1?: string;
+    group2?: string;
+    shiftType?: string;
+    minimumCount?: number;
+    targetGroup?: string;
+  };
+}
+
+// グループの型定義
+interface StaffGroup {
+  id: string;
+  name: string;
+  color: string;
+  memberIds: number[];
+  shiftTypes: ShiftType[];
+  customRules: CustomRule[];
+}
+
+// ドラッグ可能なスタッフアイテム
+interface DraggableStaffItemProps {
+  staff: Staff;
+}
+
+const DraggableStaffItem: React.FC<DraggableStaffItemProps> = ({ staff }) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+  } = useSortable({ id: staff.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className="draggable-staff-item"
+    >
+      <User size={16} />
+      <span>{staff.name}</span>
+    </div>
+  );
+};
+
+// ドロップ可能なグループゾーン
+interface DroppableGroupProps {
+  group: StaffGroup;
+  staffMembers: Staff[];
+  onEdit: () => void;
+  onDelete: () => void;
+}
+
+const DroppableGroup: React.FC<DroppableGroupProps> = ({ group, staffMembers, onEdit, onDelete }) => {
+  const { isOver, setNodeRef } = useDroppable({
+    id: group.id,
+  });
+
+  const style = {
+    backgroundColor: isOver ? 'rgba(0, 0, 0, 0.05)' : undefined,
+  };
+
+  return (
+    <div 
+      ref={setNodeRef} 
+      className="group-zone" 
+      style={{ ...style, borderColor: group.color }}
+    >
+      <div className="group-zone-header">
+        <h4 style={{ color: group.color }}>{group.name}</h4>
+        <div className="group-actions">
+          <button className="btn-icon" onClick={onEdit}>
+            <Edit3 size={14} />
+          </button>
+          <button className="btn-icon btn-danger" onClick={onDelete}>
+            <Trash2 size={14} />
+          </button>
+        </div>
+      </div>
+      
+      <SortableContext 
+        items={group.memberIds}
+        strategy={verticalListSortingStrategy}
+      >
+        <div className="group-members-zone">
+          {group.memberIds.length === 0 && (
+            <div className="empty-group-message">
+              メンバーをここにドラッグしてください
+            </div>
+          )}
+          {group.memberIds.map(staffId => {
+            const staff = staffMembers.find(s => s.id === staffId);
+            return staff ? (
+              <DraggableStaffItem key={staff.id} staff={staff} />
+            ) : null;
+          })}
+        </div>
+      </SortableContext>
+    </div>
+  );
+};
+
+const AdvancedAssignmentScheduler: React.FC<AdvancedAssignmentSchedulerProps> = ({ 
+  staffMembers, 
+  onAssignmentsChange 
+}) => {
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  
+  // グループ管理
+  const [groups, setGroups] = useState<StaffGroup[]>([
+    {
+      id: '1',
+      name: 'Aチーム',
+      color: '#667eea',
+      memberIds: [],
+      shiftTypes: [
+        { id: 'day', name: '日勤（日直）', min: 1, max: 3 },
+        { id: 'night', name: '夜勤（当直）', min: 1, max: 2 }
+      ],
+      customRules: []
+    },
+    {
+      id: '2',
+      name: 'Bチーム',
+      color: '#10b981',
+      memberIds: [],
+      shiftTypes: [
+        { id: 'day', name: '日勤（日直）', min: 0, max: 2 },
+        { id: 'night', name: '夜勤（当直）', min: 0, max: 1 }
+      ],
+      customRules: []
+    }
+  ]);
+  
+  // 未割り当てスタッフ
+  const [unassignedStaff, setUnassignedStaff] = useState<Staff[]>([]);
+  
+  // UI状態
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [showGroupForm, setShowGroupForm] = useState(false);
+  const [editingGroup, setEditingGroup] = useState<StaffGroup | null>(null);
+  const [activeId, setActiveId] = useState<number | null>(null);
+
+  // フォーム状態
+  const [groupForm, setGroupForm] = useState({
+    name: '',
+    color: '#667eea',
+    shiftTypes: [
+      { id: 'day', name: '日勤（日直）', min: 0, max: 2 },
+      { id: 'night', name: '夜勤（当直）', min: 0, max: 1 }
+    ]
+  });
+
+  // ルール追加モーダルの状態
+  const [showRuleModal, setShowRuleModal] = useState(false);
+  const [selectedGroupForRule, setSelectedGroupForRule] = useState<string>('');
+  const [activeRuleTab, setActiveRuleTab] = useState<'avoidGroupTogether' | 'requireMinimumMembers'>('avoidGroupTogether');
+  const [ruleForm, setRuleForm] = useState({
+    group1: '',
+    group2: '',
+    shiftType: '',
+    targetGroup: '',
+    minimumCount: 1
+  });
+
+  // スケジュール表示設定
+  const [scheduleViewType, setScheduleViewType] = useState<'calendar' | 'table' | 'member'>('calendar');
+  const [selectedMemberId, setSelectedMemberId] = useState<number | null>(null);
+
+  // 期間設定方式
+  const [dateRangeMode, setDateRangeMode] = useState<'custom' | 'monthly'>('custom');
+  const [selectedMonth, setSelectedMonth] = useState<string>('');
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const activeStaffMembers = staffMembers.filter(staff => staff.status === 'active');
+
+  // 初期日付設定
+  useEffect(() => {
+    const today = new Date();
+    const twoWeeksLater = new Date();
+    twoWeeksLater.setDate(today.getDate() + 14);
+    
+    const startDateStr = today.toISOString().split('T')[0];
+    const endDateStr = twoWeeksLater.toISOString().split('T')[0];
+    
+    // 自由設定モードの場合のみ初期日付を設定
+    if (dateRangeMode === 'custom') {
+      setStartDate(startDateStr);
+      setEndDate(endDateStr);
+    }
+    
+    // 初期月設定（現在の月）
+    const currentMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+    setSelectedMonth(currentMonth);
+  }, [dateRangeMode]); // dateRangeModeに依存
+
+  // 未割り当てスタッフの更新
+  useEffect(() => {
+    const assignedIds = groups.flatMap(group => group.memberIds);
+    const unassigned = activeStaffMembers.filter(staff => !assignedIds.includes(staff.id));
+    setUnassignedStaff(unassigned);
+  }, [groups, activeStaffMembers]);
+
+  // メンバー別表示の初期選択
+  useEffect(() => {
+    if (scheduleViewType === 'member' && activeStaffMembers.length > 0 && !selectedMemberId) {
+      setSelectedMemberId(activeStaffMembers[0].id);
+    }
+  }, [scheduleViewType, activeStaffMembers, selectedMemberId]);
+
+  // 月毎設定時の日付自動設定
+  useEffect(() => {
+    console.log('月毎設定useEffect実行:', { dateRangeMode, selectedMonth });
+    if (dateRangeMode === 'monthly' && selectedMonth) {
+      const [year, month] = selectedMonth.split('-');
+      const startOfMonth = new Date(parseInt(year), parseInt(month) - 1, 1);
+      const endOfMonth = new Date(parseInt(year), parseInt(month), 0);
+      
+      const newStartDate = startOfMonth;
+      const newEndDate = endOfMonth;
+      
+      console.log('月毎設定で日付を設定:', { newStartDate, newEndDate });
+      setStartDate(newStartDate);
+      setEndDate(newEndDate);
+    }
+  }, [dateRangeMode, selectedMonth]); // startDate, endDateを依存関係から除外
+
+  // カスタムモード初期化用
+  useEffect(() => {
+    console.log('カスタムモード初期化useEffect実行:', { dateRangeMode, startDate, endDate });
+    if (dateRangeMode === 'custom' && (!startDate || !endDate)) {
+      // カスタムモードで日付が空の場合は初期値を設定
+      const today = new Date();
+      const twoWeeksLater = new Date();
+      twoWeeksLater.setDate(today.getDate() + 14);
+      
+      const startDateObj = today;
+      const endDateObj = twoWeeksLater;
+      
+      console.log('カスタムモード初期日付設定:', { startDateObj, endDateObj });
+      setStartDate(startDateObj);
+      setEndDate(endDateObj);
+    }
+  }, [dateRangeMode]); // 初期化時のみ実行
+
+  // ドラッグ開始処理
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(Number(event.active.id));
+  };
+
+  // デバッグ用：状態変更監視
+  useEffect(() => {
+    console.log('startDate状態変更:', startDate);
+  }, [startDate]);
+
+  useEffect(() => {
+    console.log('endDate状態変更:', endDate);
+  }, [endDate]);
+
+  // ドラッグ終了処理
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    setActiveId(null); // ドラッグ終了時にactiveIdをリセット
+
+    if (!over) return;
+
+    const staffId = Number(active.id);
+    const targetGroupId = String(over.id);
+
+    // 現在のグループから削除
+    const currentGroup = groups.find(group => group.memberIds.includes(staffId));
+    if (currentGroup) {
+      setGroups(groups.map(group =>
+        group.id === currentGroup.id
+          ? { ...group, memberIds: group.memberIds.filter(id => id !== staffId) }
+          : group
+      ));
+    }
+
+    // 新しいグループに追加
+    if (targetGroupId !== 'unassigned') {
+      setGroups(groups.map(group =>
+        group.id === targetGroupId
+          ? { ...group, memberIds: [...group.memberIds, staffId] }
+          : group
+      ));
+    }
+  };
+
+  // グループ管理関数
+  const addGroup = () => {
+    const newGroup: StaffGroup = {
+      id: String(Date.now()),
+      name: groupForm.name,
+      color: groupForm.color,
+      memberIds: [],
+      shiftTypes: [...groupForm.shiftTypes],
+      customRules: []
+    };
+    setGroups([...groups, newGroup]);
+    setShowGroupForm(false);
+    setGroupForm({
+      name: '',
+      color: '#667eea',
+      shiftTypes: [
+        { id: 'day', name: '日勤（日直）', min: 0, max: 2 },
+        { id: 'night', name: '夜勤（当直）', min: 0, max: 1 }
+      ]
+    });
+  };
+
+  const deleteGroup = (groupId: string) => {
+    setGroups(groups.filter(group => group.id !== groupId));
+  };
+
+  const updateGroup = (groupId: string, updates: Partial<StaffGroup>) => {
+    setGroups(groups.map(group =>
+      group.id === groupId ? { ...group, ...updates } : group
+    ));
+  };
+
+  // シフトタイプ更新関数
+  const updateShiftType = (groupId: string, shiftTypeId: string, updates: Partial<ShiftType>) => {
+    setGroups(groups.map(group =>
+      group.id === groupId 
+        ? {
+            ...group,
+            shiftTypes: group.shiftTypes.map(shiftType =>
+              shiftType.id === shiftTypeId ? { ...shiftType, ...updates } : shiftType
+            )
+          }
+        : group
+    ));
+  };
+
+  // シフトタイプ追加関数
+  const addShiftType = (groupId: string, name: string) => {
+    const newShiftType: ShiftType = {
+      id: String(Date.now()),
+      name,
+      min: 0,
+      max: 1
+    };
+    
+    setGroups(groups.map(group =>
+      group.id === groupId 
+        ? { ...group, shiftTypes: [...group.shiftTypes, newShiftType] }
+        : group
+    ));
+  };
+
+  // シフトタイプ削除関数
+  const removeShiftType = (groupId: string, shiftTypeId: string) => {
+    setGroups(groups.map(group =>
+      group.id === groupId 
+        ? { ...group, shiftTypes: group.shiftTypes.filter(st => st.id !== shiftTypeId) }
+        : group
+    ));
+  };
+
+  // カスタムルール管理関数
+  const addCustomRule = (groupId: string, rule: CustomRule) => {
+    const targetGroup = groups.find(g => g.id === groupId);
+    if (!targetGroup) return;
+
+    // 重複チェック
+    const isDuplicate = targetGroup.customRules.some(existingRule => {
+      if (existingRule.type !== rule.type) return false;
+      
+      if (rule.type === 'avoidGroupTogether') {
+        return (
+          (existingRule.config.group1 === rule.config.group1 && 
+           existingRule.config.group2 === rule.config.group2 &&
+           existingRule.config.shiftType === rule.config.shiftType) ||
+          (existingRule.config.group1 === rule.config.group2 && 
+           existingRule.config.group2 === rule.config.group1 &&
+           existingRule.config.shiftType === rule.config.shiftType)
+        );
+      } else if (rule.type === 'requireMinimumMembers') {
+        return (
+          existingRule.config.targetGroup === rule.config.targetGroup &&
+          existingRule.config.shiftType === rule.config.shiftType
+        );
+      }
+      
+      return false;
+    });
+
+    if (isDuplicate) {
+      alert('同じ条件のルールが既に存在します。');
+      return;
+    }
+
+    setGroups(groups.map(group =>
+      group.id === groupId 
+        ? { ...group, customRules: [...group.customRules, rule] }
+        : group
+    ));
+  };
+
+  const removeCustomRule = (groupId: string, ruleId: string) => {
+    setGroups(groups.map(group =>
+      group.id === groupId 
+        ? { ...group, customRules: group.customRules.filter(rule => rule.id !== ruleId) }
+        : group
+    ));
+  };
+
+  // ルール編集用（将来の拡張のために保持）
+  /*
+  const updateCustomRule = (groupId: string, ruleId: string, updates: Partial<CustomRule>) => {
+    setGroups(groups.map(group =>
+      group.id === groupId 
+        ? {
+            ...group,
+            customRules: group.customRules.map(rule =>
+              rule.id === ruleId ? { ...rule, ...updates } : rule
+            )
+          }
+        : group
+    ));
+  };
+  */
+
+  // ルール作成ヘルパー関数
+  const createAvoidGroupTogetherRule = (group1: string, group2: string, shiftType: string): CustomRule => {
+    const group1Name = groups.find(g => g.id === group1)?.name || '';
+    const group2Name = groups.find(g => g.id === group2)?.name || '';
+    const shiftTypeName = groups.flatMap(g => g.shiftTypes).find(st => st.id === shiftType)?.name || '';
+    
+    return {
+      id: String(Date.now()),
+      type: 'avoidGroupTogether',
+      description: `${group1Name}と${group2Name}は${shiftTypeName}において一緒にならない`,
+      config: { group1, group2, shiftType }
+    };
+  };
+
+  const createRequireMinimumMembersRule = (targetGroup: string, shiftType: string, minimumCount: number): CustomRule => {
+    const groupName = groups.find(g => g.id === targetGroup)?.name || '';
+    const shiftTypeName = groups.flatMap(g => g.shiftTypes).find(st => st.id === shiftType)?.name || '';
+    
+    return {
+      id: String(Date.now()),
+      type: 'requireMinimumMembers',
+      description: `${groupName}は${shiftTypeName}に必ず${minimumCount}人以上含める`,
+      config: { targetGroup, shiftType, minimumCount }
+    };
+  };
+
+  // 最適化スケジューラー
+  const generateOptimalSchedule = async () => {
+    setIsGenerating(true);
+    
+    try {
+      if (!startDate || !endDate) {
+        console.error('開始日または終了日が設定されていません');
+        return;
+      }
+      
+      const startDateStr = startDate.toISOString().split('T')[0];
+      const endDateStr = endDate.toISOString().split('T')[0];
+      const dateRange = generateDateRange(startDateStr, endDateStr);
+      const newAssignments: Assignment[] = [];
+      
+      for (const dateStr of dateRange) {
+        // 各日に対して制約を考慮したスタッフ選択
+        const availableStaff = activeStaffMembers.filter(() => {
+          // 簡単な制約チェック（将来的に拡張可能）
+          return true;
+        });
+
+        // シンプルなローテーション割り当て
+        const selectedStaff = availableStaff[newAssignments.length % availableStaff.length];
+        
+        if (selectedStaff) {
+          newAssignments.push({
+            id: `${dateStr}-${selectedStaff.id}`,
+            date: dateStr,
+            staffId: selectedStaff.id,
+            staffName: selectedStaff.name,
+            shift: 'day'
+          });
+        }
+      }
+
+      setAssignments(newAssignments);
+      onAssignmentsChange(newAssignments);
+    } catch (error) {
+      console.error('スケジュール生成エラー:', error);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // スケジュール表示用のヘルパー関数
+  const getDateRange = () => {
+    if (!startDate || !endDate) return [];
+    
+    const startDateStr = startDate.toISOString().split('T')[0];
+    const endDateStr = endDate.toISOString().split('T')[0];
+    return generateDateRange(startDateStr, endDateStr);
+  };
+
+  const getAssignmentsByDate = () => {
+    const dateRange = getDateRange();
+    const assignmentsByDate: { [key: string]: Assignment[] } = {};
+    
+    dateRange.forEach(dateStr => {
+      assignmentsByDate[dateStr] = assignments.filter(
+        assignment => assignment.date === dateStr
+      );
+    });
+    
+    return assignmentsByDate;
+  };
+
+  // メンバー別の割り当て取得（将来の拡張用）
+  /*
+  const getAssignmentsByMember = () => {
+    const memberAssignments: { [key: number]: Assignment[] } = {};
+    
+    activeStaffMembers.forEach(staff => {
+      memberAssignments[staff.id] = assignments.filter(
+        assignment => assignment.staffId === staff.id
+      );
+    });
+    
+    return memberAssignments;
+  };
+  */
+
+  return (
+    <div className="advanced-assignment-scheduler">
+      <div className="scheduler-header">
+        <h2>
+          <Zap className="header-icon" />
+          高度な割り当てスケジューラー
+        </h2>
+        <p>グループ分け、制約条件、個別希望を設定して最適なシフトを自動生成</p>
+      </div>
+
+      {/* 1. 日付設定 */}
+      <div className="date-range-section">
+        <h3>期間設定</h3>
+        
+        {/* 期間設定方式選択 */}
+        <div className="date-mode-selector">
+          <div className="mode-tabs">
+            <button
+              className={`mode-tab ${dateRangeMode === 'custom' ? 'active' : ''}`}
+              onClick={() => setDateRangeMode('custom')}
+            >
+              自由設定
+            </button>
+            <button
+              className={`mode-tab ${dateRangeMode === 'monthly' ? 'active' : ''}`}
+              onClick={() => setDateRangeMode('monthly')}
+            >
+              月毎設定
+            </button>
+          </div>
+        </div>
+
+        {/* 自由設定モード */}
+        {dateRangeMode === 'custom' && (
+          <div className="date-range-selector">
+            <div className="date-input">
+              <label>開始日</label>
+              <DatePicker
+                selected={startDate}
+                onChange={(date: Date | null) => {
+                  console.log('開始日変更:', date);
+                  setStartDate(date);
+                }}
+                dateFormat="yyyy/MM/dd"
+                locale="ja"
+                placeholderText="開始日を選択"
+                className="date-picker-input"
+              />
+              <small style={{color: 'var(--text-secondary)', fontSize: '0.75rem', marginTop: '4px'}}>
+                現在値: {startDate?.toLocaleDateString('ja-JP')}
+              </small>
+            </div>
+            <div className="date-separator">〜</div>
+            <div className="date-input">
+              <label>終了日</label>
+              <DatePicker
+                selected={endDate}
+                onChange={(date: Date | null) => {
+                  console.log('終了日変更:', date);
+                  setEndDate(date);
+                }}
+                dateFormat="yyyy/MM/dd"
+                locale="ja"
+                placeholderText="終了日を選択"
+                className="date-picker-input"
+                minDate={startDate || undefined}
+              />
+              <small style={{color: 'var(--text-secondary)', fontSize: '0.75rem', marginTop: '4px'}}>
+                現在値: {endDate?.toLocaleDateString('ja-JP')}
+              </small>
+            </div>
+          </div>
+        )}
+
+        {/* 月毎設定モード */}
+        {dateRangeMode === 'monthly' && (
+          <div className="monthly-selector">
+            <div className="month-input">
+              <label>対象月</label>
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+              />
+            </div>
+            <div className="auto-dates-display">
+              <p>設定期間: {startDate?.toLocaleDateString('ja-JP')} 〜 {endDate?.toLocaleDateString('ja-JP')}</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ドラッグアンドドロップコンテキスト */}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
+        {/* 2. メンバー一覧 */}
+        <div className="members-section">
+          <h3>メンバー一覧</h3>
+          <div className="members-list">
+            <SortableContext 
+              items={unassignedStaff.map(staff => staff.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              {unassignedStaff.map(staff => (
+                <DraggableStaffItem key={staff.id} staff={staff} />
+              ))}
+            </SortableContext>
+          </div>
+        </div>
+
+        {/* 3. グループ分け */}
+        <div className="groups-section">
+          <div className="groups-header">
+            <h3>グループ分け</h3>
+            <button
+              className="btn btn-primary"
+              onClick={() => setShowGroupForm(true)}
+            >
+              <Plus size={16} />
+              グループを追加
+            </button>
+          </div>
+          
+          <div className="groups-grid">
+            {groups.map(group => (
+              <DroppableGroup
+                key={group.id}
+                group={group}
+                staffMembers={staffMembers}
+                onEdit={() => {
+                  setEditingGroup(group);
+                  setGroupForm({
+                    name: group.name,
+                    color: group.color,
+                    shiftTypes: [...group.shiftTypes]
+                  });
+                  setShowGroupForm(true);
+                }}
+                onDelete={() => deleteGroup(group.id)}
+              />
+            ))}
+          </div>
+        </div>
+        
+        {/* ドラッグオーバーレイ */}
+        <DragOverlay>
+          {activeId ? (
+            <div className="draggable-staff-item dragging">
+              <User size={16} />
+              <span>
+                {staffMembers.find(staff => staff.id === activeId)?.name || ''}
+              </span>
+            </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
+
+      {/* 4. グループ設定 */}
+      <div className="group-settings-section">
+        <h3>グループ設定</h3>
+        <div className="group-settings-grid">
+          {groups.map(group => (
+            <div key={group.id} className="group-settings-card" style={{ borderLeftColor: group.color }}>
+              <div className="group-settings-header">
+                <h4 style={{ color: group.color }}>{group.name}</h4>
+                <span className="member-count">{group.memberIds.length}名</span>
+              </div>
+              
+              <div className="settings-content">
+                {group.shiftTypes.map(shiftType => (
+                  <div key={shiftType.id} className="setting-row shift-type-row">
+                    <label>{shiftType.name}シフト数</label>
+                    <div className="shift-range">
+                      <input
+                        type="number"
+                        value={shiftType.min}
+                        onChange={(e) => updateShiftType(group.id, shiftType.id, {
+                          min: parseInt(e.target.value) || 0
+                        })}
+                        min="0"
+                      />
+                      <span>回〜</span>
+                      <input
+                        type="number"
+                        value={shiftType.max}
+                        onChange={(e) => updateShiftType(group.id, shiftType.id, {
+                          max: parseInt(e.target.value) || 1
+                        })}
+                        min="0"
+                      />
+                      <span>回</span>
+                      {group.shiftTypes.length > 2 && (
+                        <button
+                          className="btn-icon btn-danger-small"
+                          onClick={() => removeShiftType(group.id, shiftType.id)}
+                          title="勤務形態を削除"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                
+                <div className="setting-row">
+                  <button
+                    className="btn btn-secondary btn-small"
+                    onClick={() => {
+                      const newTypeName = prompt('新しい勤務形態の名前を入力してください：', '準夜勤');
+                      if (newTypeName && newTypeName.trim()) {
+                        addShiftType(group.id, newTypeName.trim());
+                      }
+                    }}
+                  >
+                    <Plus size={16} />
+                    勤務形態の追加
+                  </button>
+                </div>
+
+                {/* カスタムルール表示 */}
+                <div className="custom-rules-section">
+                  <h4>
+                    <Target size={14} />
+                    カスタムルール
+                  </h4>
+                  
+                  {group.customRules.length > 0 ? (
+                    <div className="custom-rules-list">
+                      {group.customRules.map(rule => (
+                        <div key={rule.id} className="custom-rule-item">
+                          <span className="custom-rule-description">{rule.description}</span>
+                          <div className="rule-actions">
+                            <button
+                              className="btn-icon btn-danger"
+                              onClick={() => removeCustomRule(group.id, rule.id)}
+                              title="ルールを削除"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="empty-rules-message">ルールが設定されていません</div>
+                  )}
+                  
+                  <button
+                    className="add-rule-button"
+                    onClick={() => {
+                      setSelectedGroupForRule(group.id);
+                      setShowRuleModal(true);
+                      setRuleForm({
+                        group1: '',
+                        group2: '',
+                        shiftType: '',
+                        targetGroup: group.id,
+                        minimumCount: 1
+                      });
+                    }}
+                  >
+                    <Plus size={14} />
+                    ルールの追加
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* スケジュール生成ボタン */}
+      <div className="generate-section">
+        <div className="generate-actions">
+          <button
+            className="btn btn-primary btn-large"
+            onClick={generateOptimalSchedule}
+            disabled={isGenerating}
+          >
+            {isGenerating ? (
+              <>
+                <RefreshCw size={16} className="spinning" />
+                生成中...
+              </>
+            ) : (
+              <>
+                <Target size={16} />
+                最適化実行
+              </>
+            )}
+          </button>
+          <button
+            className="btn btn-secondary"
+            onClick={() => {
+              setAssignments([]);
+              onAssignmentsChange([]);
+            }}
+          >
+            <X size={16} />
+            クリア
+          </button>
+        </div>
+      </div>
+
+      {/* スケジュール結果 */}
+      {assignments.length > 0 && (
+        <div className="schedule-result">
+          <div className="schedule-result-header">
+            <h3>生成されたスケジュール</h3>
+            <div className="view-type-selector">
+              <button
+                className={`view-type-btn ${scheduleViewType === 'calendar' ? 'active' : ''}`}
+                onClick={() => setScheduleViewType('calendar')}
+              >
+                <Calendar size={16} />
+                カレンダー
+              </button>
+              <button
+                className={`view-type-btn ${scheduleViewType === 'table' ? 'active' : ''}`}
+                onClick={() => setScheduleViewType('table')}
+              >
+                <Table size={16} />
+                表形式
+              </button>
+              <button
+                className={`view-type-btn ${scheduleViewType === 'member' ? 'active' : ''}`}
+                onClick={() => setScheduleViewType('member')}
+              >
+                <Users size={16} />
+                メンバー別
+              </button>
+            </div>
+          </div>
+
+          {/* カレンダー表示 */}
+          {scheduleViewType === 'calendar' && (
+            <div className="calendar-view">
+              <div className="calendar-grid">
+                {Object.entries(getAssignmentsByDate()).map(([date, dayAssignments]) => (
+                  <div key={date} className="calendar-day">
+                    <div className="calendar-date">
+                      {formatDateJapanese(date)}
+                    </div>
+                    <div className="calendar-assignments">
+                      {dayAssignments.map(assignment => {
+                        const staff = staffMembers.find(s => s.id === assignment.staffId);
+                        return (
+                          <div 
+                            key={assignment.id} 
+                            className={`calendar-assignment ${assignment.shift}`}
+                          >
+                            <span className="assignment-staff-name">{staff?.name}</span>
+                            <span className="assignment-shift-type">
+                              {assignment.shift === 'day' ? '日勤' : '夜勤'}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 表形式表示 */}
+          {scheduleViewType === 'table' && (
+            <div className="table-view">
+              <div className="schedule-table">                  <div className="table-header">
+                    <div className="table-cell member-header">メンバー</div>
+                    {getDateRange().map(dateStr => (
+                      <div key={dateStr} className="table-cell date-header">
+                        {formatDateJapanese(dateStr).split(' ')[1]}
+                      </div>
+                    ))}
+                  </div>
+                  {activeStaffMembers.map(staff => (
+                    <div key={staff.id} className="table-row">
+                      <div className="table-cell member-name">{staff.name}</div>
+                      {getDateRange().map(dateStr => {
+                        const assignment = assignments.find(
+                          a => a.staffId === staff.id && a.date === dateStr
+                        );
+                        return (
+                          <div key={dateStr} className="table-cell assignment-cell">
+                            {assignment && (
+                              <span className={`shift-marker ${assignment.shift}`}>
+                                {assignment.shift === 'day' ? '日' : '夜'}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+
+          {/* メンバー別表示 */}
+          {scheduleViewType === 'member' && (
+            <div className="member-view">
+              <div className="member-tabs">
+                {activeStaffMembers.map(staff => (
+                  <button
+                    key={staff.id}
+                    className={`member-tab ${selectedMemberId === staff.id ? 'active' : ''}`}
+                    onClick={() => setSelectedMemberId(staff.id)}
+                  >
+                    <User size={14} />
+                    {staff.name}
+                  </button>
+                ))}
+              </div>
+              {selectedMemberId && (
+                <div className="member-calendar">
+                  <div className="member-calendar-grid">
+                    {getDateRange().map(dateStr => {
+                      const assignment = assignments.find(
+                        a => a.staffId === selectedMemberId && a.date === dateStr
+                      );
+                      return (
+                        <div 
+                          key={dateStr} 
+                          className={`member-calendar-day ${assignment ? 'has-assignment' : ''}`}
+                        >
+                          <div className="member-calendar-date">
+                            {formatDateJapanese(dateStr)}
+                          </div>
+                          {assignment && (
+                            <div className={`member-assignment ${assignment.shift}`}>
+                              {assignment.shift === 'day' ? '日勤' : '夜勤'}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="schedule-actions">
+            <button
+              className="btn btn-success"
+              onClick={() => {
+                alert('スケジュールが保存されました');
+              }}
+            >
+              <Save size={16} />
+              スケジュールを保存
+            </button>
+          </div>
+        </div>
+      )}
+
+      {assignments.length === 0 && (
+        <div className="empty-schedule">
+          <AlertCircle size={48} />
+          <h4>スケジュールが生成されていません</h4>
+          <p>「最適化実行」ボタンをクリックしてスケジュールを生成してください</p>
+        </div>
+      )}
+
+      {/* グループフォーム */}
+      {showGroupForm && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-header">
+              <h3>{editingGroup ? 'グループを編集' : '新しいグループ'}</h3>
+              <button 
+                className="btn-icon"
+                onClick={() => {
+                  setShowGroupForm(false);
+                  setEditingGroup(null);
+                }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              if (editingGroup) {
+                updateGroup(editingGroup.id, {
+                  name: groupForm.name,
+                  color: groupForm.color,
+                  shiftTypes: [...groupForm.shiftTypes]
+                });
+                setShowGroupForm(false);
+                setEditingGroup(null);
+              } else {
+                addGroup();
+              }
+            }}>
+              <div className="form-group">
+                <label>グループ名</label>
+                <input
+                  type="text"
+                  value={groupForm.name}
+                  onChange={(e) => setGroupForm({...groupForm, name: e.target.value})}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>カラー</label>
+                <input
+                  type="color"
+                  value={groupForm.color}
+                  onChange={(e) => setGroupForm({...groupForm, color: e.target.value})}
+                />
+              </div>
+              <div className="form-actions">
+                <button type="submit" className="btn btn-primary">
+                  {editingGroup ? '更新' : '追加'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ルール追加モーダル */}
+      {showRuleModal && (
+        <div className="modal-overlay">
+          <div className="modal rule-modal">
+            <div className="modal-header">
+              <h3>ルールの追加</h3>
+              <button 
+                className="btn-icon"
+                onClick={() => setShowRuleModal(false)}
+              >
+                <X size={16} />
+              </button>
+            </div>
+            
+            <div className="modal-content">
+              <div className="rule-tabs">
+                <button
+                  className={`rule-tab ${activeRuleTab === 'avoidGroupTogether' ? 'active' : ''}`}
+                  onClick={() => setActiveRuleTab('avoidGroupTogether')}
+                >
+                  グループを一緒にしない
+                </button>
+                <button
+                  className={`rule-tab ${activeRuleTab === 'requireMinimumMembers' ? 'active' : ''}`}
+                  onClick={() => setActiveRuleTab('requireMinimumMembers')}
+                >
+                  最低人数を確保
+                </button>
+              </div>
+              
+              <div className="rule-form">
+                {activeRuleTab === 'avoidGroupTogether' && (
+                  <>
+                    <div className="form-group">
+                      <label>グループ1</label>
+                      <select
+                        value={ruleForm.group1}
+                        onChange={(e) => setRuleForm({...ruleForm, group1: e.target.value})}
+                        required
+                      >
+                        <option value="">選択してください</option>
+                        {groups.map(group => (
+                          <option key={group.id} value={group.id}>
+                            {group.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label>グループ2</label>
+                      <select
+                        value={ruleForm.group2}
+                        onChange={(e) => setRuleForm({...ruleForm, group2: e.target.value})}
+                        required
+                      >
+                        <option value="">選択してください</option>
+                        {groups.map(group => (
+                          <option key={group.id} value={group.id}>
+                            {group.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label>勤務形態</label>
+                      <select
+                        value={ruleForm.shiftType}
+                        onChange={(e) => setRuleForm({...ruleForm, shiftType: e.target.value})}
+                        required
+                      >
+                        <option value="">選択してください</option>
+                        {groups.flatMap(group => group.shiftTypes).map(shiftType => (
+                          <option key={shiftType.id} value={shiftType.id}>
+                            {shiftType.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </>
+                )}
+                
+                {activeRuleTab === 'requireMinimumMembers' && (
+                  <>
+                    <div className="form-group">
+                      <label>対象グループ</label>
+                      <select
+                        value={ruleForm.targetGroup}
+                        onChange={(e) => setRuleForm({...ruleForm, targetGroup: e.target.value})}
+                        required
+                      >
+                        <option value="">選択してください</option>
+                        {groups.map(group => (
+                          <option key={group.id} value={group.id}>
+                            {group.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label>最低人数</label>
+                      <input
+                        type="number"
+                        value={ruleForm.minimumCount}
+                        onChange={(e) => setRuleForm({...ruleForm, minimumCount: parseInt(e.target.value)})}
+                        min="1"
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>勤務形態</label>
+                      <select
+                        value={ruleForm.shiftType}
+                        onChange={(e) => setRuleForm({...ruleForm, shiftType: e.target.value})}
+                        required
+                      >
+                        <option value="">選択してください</option>
+                        {groups.flatMap(group => group.shiftTypes).map(shiftType => (
+                          <option key={shiftType.id} value={shiftType.id}>
+                            {shiftType.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+            
+            <div className="modal-actions">
+              <button
+                className="btn btn-secondary"
+                onClick={() => {
+                  setShowRuleModal(false);
+                  setRuleForm({
+                    group1: '',
+                    group2: '',
+                    shiftType: '',
+                    targetGroup: '',
+                    minimumCount: 1
+                  });
+                }}
+              >
+                キャンセル
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={() => {
+                  // バリデーション
+                  let isValid = false;
+                  let newRule: CustomRule | null = null;
+
+                  if (activeRuleTab === 'avoidGroupTogether') {
+                    if (ruleForm.group1 && ruleForm.group2 && ruleForm.shiftType && ruleForm.group1 !== ruleForm.group2) {
+                      newRule = createAvoidGroupTogetherRule(ruleForm.group1, ruleForm.group2, ruleForm.shiftType);
+                      isValid = true;
+                    }
+                  } else if (activeRuleTab === 'requireMinimumMembers') {
+                    if (ruleForm.targetGroup && ruleForm.shiftType && ruleForm.minimumCount > 0) {
+                      newRule = createRequireMinimumMembersRule(ruleForm.targetGroup, ruleForm.shiftType, ruleForm.minimumCount);
+                      isValid = true;
+                    }
+                  }
+
+                  if (isValid && newRule && selectedGroupForRule) {
+                    addCustomRule(selectedGroupForRule, newRule);
+                    setShowRuleModal(false);
+                    setRuleForm({
+                      group1: '',
+                      group2: '',
+                      shiftType: '',
+                      targetGroup: '',
+                      minimumCount: 1
+                    });
+                  } else {
+                    alert('すべての項目を正しく入力してください。');
+                  }
+                }}
+                disabled={
+                  activeRuleTab === 'avoidGroupTogether' 
+                    ? !ruleForm.group1 || !ruleForm.group2 || !ruleForm.shiftType || ruleForm.group1 === ruleForm.group2
+                    : !ruleForm.targetGroup || !ruleForm.shiftType || ruleForm.minimumCount <= 0
+                }
+              >
+                ルールを追加
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default AdvancedAssignmentScheduler;

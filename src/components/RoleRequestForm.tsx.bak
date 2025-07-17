@@ -1,0 +1,380 @@
+import React, { useState, useEffect } from 'react';
+import {
+  Box,
+  Card,
+  CardContent,
+  CardHeader,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Chip,
+  OutlinedInput,
+  Alert,
+  CircularProgress,
+  Typography,
+  Divider,
+  FormHelperText,
+  Autocomplete
+} from '@mui/material';
+import { LoadingButton } from '@mui/lab';
+import { 
+  PersonAdd as PersonAddIcon,
+  Send as SendIcon,
+  CheckCircle as CheckCircleIcon 
+} from '@mui/icons-material';
+import { collection, addDoc, serverTimestamp, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase'; // Firebase設定のパス
+
+interface Department {
+  id: string;
+  name: string;
+}
+
+interface User {
+  uid: string;
+  email: string;
+  displayName: string;
+}
+
+interface RoleRequestFormData {
+  targetUid: string;
+  role: 'admin' | 'manager' | 'staff';
+  chiefOf: string[];
+  hosp: string;
+}
+
+interface RoleRequestFormProps {
+  onSuccess?: (requestId: string) => void;
+  onError?: (error: Error) => void;
+}
+
+const RoleRequestForm: React.FC<RoleRequestFormProps> = ({
+  onSuccess,
+  onError
+}) => {
+  // フォーム状態
+  const [formData, setFormData] = useState<RoleRequestFormData>({
+    targetUid: '',
+    role: 'staff',
+    chiefOf: [],
+    hosp: ''
+  });
+
+  // UI状態
+  const [loading, setLoading] = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // データ取得状態
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [dataLoading, setDataLoading] = useState(true);
+
+  // 初期データ取得
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setDataLoading(true);
+
+        // 部署一覧取得
+        const departmentsSnapshot = await getDocs(collection(db, 'departments'));
+        const departmentsList: Department[] = [];
+        departmentsSnapshot.forEach((doc) => {
+          departmentsList.push({
+            id: doc.id,
+            name: doc.data().name || doc.id
+          });
+        });
+        setDepartments(departmentsList);
+
+        // ユーザー一覧取得
+        const usersSnapshot = await getDocs(collection(db, 'userProfiles'));
+        const usersList: User[] = [];
+        usersSnapshot.forEach((doc) => {
+          const data = doc.data();
+          usersList.push({
+            uid: doc.id,
+            email: data.email || '',
+            displayName: data.displayName || data.email || 'Unknown User'
+          });
+        });
+        setUsers(usersList);
+
+      } catch (err) {
+        console.error('データ取得エラー:', err);
+        setError('部署・ユーザー情報の取得に失敗しました');
+      } finally {
+        setDataLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // フォームバリデーション
+  const isFormValid = (): boolean => {
+    return !!(
+      formData.targetUid.trim() &&
+      formData.role &&
+      (formData.role !== 'manager' || formData.chiefOf.length > 0)
+    );
+  };
+
+  // フォーム送信
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!isFormValid()) {
+      setError('必須項目を入力してください');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      // roleRequests コレクションにドキュメント追加
+      const roleRequestData = {
+        targetUid: formData.targetUid,
+        role: formData.role,
+        chiefOf: formData.role === 'manager' ? formData.chiefOf : [],
+        hosp: formData.hosp.trim() || '',
+        requestedBy: 'current-user', // 実際の実装では現在のユーザーIDを設定
+        requestedAt: serverTimestamp(),
+        status: 'pending'
+      };
+
+      const docRef = await addDoc(collection(db, 'roleRequests'), roleRequestData);
+      
+      console.log('✅ ロール申請作成完了:', docRef.id);
+      
+      setSubmitSuccess(true);
+      
+      // フォームリセット
+      setFormData({
+        targetUid: '',
+        role: 'staff',
+        chiefOf: [],
+        hosp: ''
+      });
+
+      // 成功コールバック
+      if (onSuccess) {
+        onSuccess(docRef.id);
+      }
+
+      // 3秒後に成功メッセージを隠す
+      setTimeout(() => {
+        setSubmitSuccess(false);
+      }, 3000);
+
+    } catch (err) {
+      console.error('❌ ロール申請作成エラー:', err);
+      const errorMessage = err instanceof Error ? err.message : '申請の送信に失敗しました';
+      setError(errorMessage);
+      
+      if (onError) {
+        onError(err instanceof Error ? err : new Error(errorMessage));
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ローディング状態
+  if (dataLoading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight={200}>
+        <CircularProgress />
+        <Typography variant="body1" sx={{ ml: 2 }}>
+          データを読み込み中...
+        </Typography>
+      </Box>
+    );
+  }
+
+  return (
+    <Card sx={{ maxWidth: 600, mx: 'auto', mt: 4 }}>
+      <CardHeader
+        avatar={<PersonAddIcon color="primary" />}
+        title="ロール変更申請"
+        subheader="ユーザーの権限変更を申請します"
+      />
+      
+      <CardContent>
+        {/* 成功メッセージ */}
+        {submitSuccess && (
+          <Alert 
+            severity="success" 
+            icon={<CheckCircleIcon />}
+            sx={{ mb: 3 }}
+          >
+            ロール変更申請を送信しました。承認をお待ちください。
+          </Alert>
+        )}
+
+        {/* エラーメッセージ */}
+        {error && (
+          <Alert severity="error" sx={{ mb: 3 }}>
+            {error}
+          </Alert>
+        )}
+
+        <form onSubmit={handleSubmit}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            
+            {/* 対象ユーザー選択 */}
+            <Autocomplete
+              options={users}
+              getOptionLabel={(user) => `${user.displayName} (${user.email})`}
+              value={users.find(u => u.uid === formData.targetUid) || null}
+              onChange={(_, newValue) => {
+                setFormData(prev => ({
+                  ...prev,
+                  targetUid: newValue?.uid || ''
+                }));
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="対象ユーザー"
+                  required
+                  helperText="権限を変更するユーザーを選択してください"
+                />
+              )}
+              renderOption={(props, user) => (
+                <Box component="li" {...props}>
+                  <Box>
+                    <Typography variant="body1">{user.displayName}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {user.email}
+                    </Typography>
+                  </Box>
+                </Box>
+              )}
+            />
+
+            {/* ロール選択 */}
+            <FormControl required>
+              <InputLabel>権限レベル</InputLabel>
+              <Select
+                value={formData.role}
+                label="権限レベル"
+                onChange={(e) => {
+                  setFormData(prev => ({
+                    ...prev,
+                    role: e.target.value as 'admin' | 'manager' | 'staff',
+                    // manager以外の場合はchiefOfをクリア
+                    chiefOf: e.target.value === 'manager' ? prev.chiefOf : []
+                  }));
+                }}
+              >
+                <MenuItem value="staff">スタッフ</MenuItem>
+                <MenuItem value="manager">所属長</MenuItem>
+                <MenuItem value="admin">管理者</MenuItem>
+              </Select>
+              <FormHelperText>
+                {formData.role === 'admin' && '全システムへのアクセス権限'}
+                {formData.role === 'manager' && '指定部署の管理権限'}
+                {formData.role === 'staff' && '基本的な利用権限'}
+              </FormHelperText>
+            </FormControl>
+
+            {/* 管理部署選択（所属長の場合のみ） */}
+            {formData.role === 'manager' && (
+              <FormControl required>
+                <InputLabel>管理部署</InputLabel>
+                <Select
+                  multiple
+                  value={formData.chiefOf}
+                  onChange={(e) => {
+                    setFormData(prev => ({
+                      ...prev,
+                      chiefOf: typeof e.target.value === 'string' 
+                        ? e.target.value.split(',') 
+                        : e.target.value
+                    }));
+                  }}
+                  input={<OutlinedInput label="管理部署" />}
+                  renderValue={(selected) => (
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                      {selected.map((value) => {
+                        const dept = departments.find(d => d.id === value);
+                        return (
+                          <Chip 
+                            key={value} 
+                            label={dept?.name || value} 
+                            size="small" 
+                          />
+                        );
+                      })}
+                    </Box>
+                  )}
+                >
+                  {departments.map((dept) => (
+                    <MenuItem key={dept.id} value={dept.id}>
+                      {dept.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+                <FormHelperText>
+                  所属長として管理する部署を選択してください（複数選択可）
+                </FormHelperText>
+              </FormControl>
+            )}
+
+            {/* 病院・施設情報 */}
+            <TextField
+              label="病院・施設"
+              value={formData.hosp}
+              onChange={(e) => {
+                setFormData(prev => ({
+                  ...prev,
+                  hosp: e.target.value
+                }));
+              }}
+              helperText="所属する病院や施設名（任意）"
+              multiline
+              rows={2}
+            />
+
+            <Divider />
+
+            {/* 送信ボタン */}
+            <LoadingButton
+              type="submit"
+              variant="contained"
+              size="large"
+              loading={loading}
+              disabled={!isFormValid()}
+              loadingPosition="start"
+              startIcon={<SendIcon />}
+              sx={{ alignSelf: 'flex-start' }}
+            >
+              申請を送信
+            </LoadingButton>
+
+            {/* フォームバリデーション状態表示 */}
+            {!isFormValid() && (
+              <Alert severity="info" sx={{ mt: 2 }}>
+                <Typography variant="body2">
+                  必須項目を入力してください：
+                  <ul style={{ margin: '8px 0', paddingLeft: '20px' }}>
+                    {!formData.targetUid && <li>対象ユーザーの選択</li>}
+                    {formData.role === 'manager' && formData.chiefOf.length === 0 && (
+                      <li>管理部署の選択</li>
+                    )}
+                  </ul>
+                </Typography>
+              </Alert>
+            )}
+          </Box>
+        </form>
+      </CardContent>
+    </Card>
+  );
+};
+
+export default RoleRequestForm;

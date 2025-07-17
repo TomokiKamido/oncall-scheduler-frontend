@@ -1,0 +1,299 @@
+/* 権限制御対応のScheduleページ用CSS */
+.schedule-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.permission-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  padding: 15px 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.role-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.role-badge.admin {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+}
+
+.role-badge.manager {
+  background: linear-gradient(135deg, #48bb78, #38a169);
+  color: white;
+}
+
+.role-badge.staff {
+  background: linear-gradient(135deg, #4299e1, #3182ce);
+  color: white;
+}
+
+.role-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-primary);
+}
+
+.user-info .department {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.schedule-tabs {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 30px;
+  background: var(--surface-light);
+  padding: 4px;
+  border-radius: 12px;
+  overflow-x: auto;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.tab:hover {
+  background: var(--surface);
+  color: var(--text-primary);
+}
+
+.tab.active {
+  background: var(--primary-color);
+  color: white;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
+.tab-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.schedule-main {
+  margin-bottom: 40px;
+}
+
+.schedule-content {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 25px;
+}
+
+.content-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 15px;
+  margin-bottom: 25px;
+}
+
+.content-header .icon {
+  width: 32px;
+  height: 32px;
+  color: var(--primary-color);
+  margin-top: 5px;
+}
+
+.content-header h2 {
+  color: var(--text-primary);
+  margin: 0 0 8px 0;
+  font-size: 1.4rem;
+}
+
+.content-header p {
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.access-denied {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-secondary);
+}
+
+.denied-icon {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 20px;
+  color: #f56565;
+  opacity: 0.7;
+}
+
+.access-denied h3 {
+  color: var(--text-primary);
+  margin-bottom: 10px;
+  font-size: 1.2rem;
+}
+
+.access-denied p {
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.permission-footer {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 25px;
+  margin-top: 40px;
+}
+
+.permission-footer h4 {
+  color: var(--text-primary);
+  margin-bottom: 20px;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.permission-guide {
+  display: grid;
+  gap: 20px;
+}
+
+.permission-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 15px;
+  padding: 15px;
+  background: var(--surface-light);
+  border-radius: 8px;
+}
+
+.permission-icon {
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+}
+
+.permission-icon.admin {
+  color: #667eea;
+}
+
+.permission-icon.manager {
+  color: #48bb78;
+}
+
+.permission-icon.staff {
+  color: #4299e1;
+}
+
+.permission-item strong {
+  display: block;
+  color: var(--text-primary);
+  margin-bottom: 5px;
+  font-size: 0.95rem;
+}
+
+.permission-item p {
+  color: var(--text-secondary);
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+/* レスポンシブ対応 */
+@media (max-width: 768px) {
+  .schedule-page {
+    padding: 15px;
+  }
+
+  .permission-header {
+    flex-direction: column;
+    gap: 15px;
+    align-items: stretch;
+  }
+
+  .user-info {
+    justify-content: center;
+  }
+
+  .schedule-tabs {
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .tab {
+    padding: 15px 20px;
+    justify-content: center;
+  }
+
+  .content-header {
+    flex-direction: column;
+    gap: 10px;
+    text-align: center;
+  }
+
+  .content-header .icon {
+    margin: 0 auto;
+  }
+
+  .permission-guide {
+    grid-template-columns: 1fr;
+  }
+
+  .permission-item {
+    flex-direction: column;
+    text-align: center;
+    gap: 10px;
+  }
+
+  .permission-icon {
+    margin: 0 auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .schedule-page {
+    padding: 10px;
+  }
+
+  .permission-header,
+  .schedule-content,
+  .permission-footer {
+    padding: 20px;
+  }
+
+  .role-badge {
+    padding: 6px 12px;
+    font-size: 0.8rem;
+  }
+
+  .tab {
+    padding: 12px 16px;
+    font-size: 0.85rem;
+  }
+}

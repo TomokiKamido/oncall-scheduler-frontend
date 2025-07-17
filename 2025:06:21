@@ -1,0 +1,56 @@
+
+# Please enter the commit message for your changes. Lines starting
+# with '#' will be ignored, and an empty message aborts the commit.
+#
+# On branch main
+# Changes to be committed:
+#	new file:   src/components/schedule/GroupSetupStep.tsx
+#
+# Changes not staged for commit:
+#	modified:   .vscode/settings.json
+#	modified:   README.md
+#	modified:   build/asset-manifest.json
+#	modified:   build/index.html
+#	deleted:    build/static/css/main.9ef0af5b.css
+#	deleted:    build/static/js/main.d8dcc141.js
+#	deleted:    build/static/js/main.d8dcc141.js.LICENSE.txt
+#	modified:   package-lock.json
+#	modified:   package.json
+#	modified:   src/components/schedule/AdvancedAssignmentScheduler.css
+#	modified:   src/components/schedule/AdvancedAssignmentScheduler.tsx
+#	deleted:    src/components/schedule/AdvancedAssignmentScheduler.tsx.broken
+#	modified:   src/components/schedule/GroupSetupStep.tsx
+#	modified:   src/types/index.ts
+#	modified:   tsconfig.json
+#
+# Untracked files:
+#	.copilot-instructions.md
+#	.eslintrc.json
+#	.husky/
+#	.templates/
+#	.vscode/COPILOT_WARNING.md
+#	.vscode/copilot-protection.json
+#	.vscode/copilot-workspace-settings.json
+#	DEVELOPMENT_GUIDELINES.md
+#	build/static/css/main.ca204713.css
+#	build/static/js/main.f2bc3faa.js
+#	build/static/js/main.f2bc3faa.js.LICENSE.txt
+#	craco.config.js
+#	package_broken.json
+#	package_fixed.json
+#	scripts/safe-development.sh
+#	src/components/schedule/AdvancedAssignmentScheduler.tsx.backup
+#	src/components/schedule/AdvancedAssignmentScheduler_ReactDnd.tsx
+#	src/components/schedule/AdvancedAssignmentScheduler_ReactDnd_clean.tsx
+#	src/components/schedule/AdvancedAssignmentScheduler_backup_233525.tsx
+#	src/components/schedule/AdvancedAssignmentScheduler_dndkit_backup.css
+#	src/components/schedule/AdvancedAssignmentScheduler_dndkit_backup.tsx
+#	src/components/schedule/AdvancedAssignmentScheduler_old.tsx
+#	src/components/schedule/CustomRuleStep.tsx
+#	src/components/schedule/PeriodSetupStep.tsx
+#	src/components/schedule/README.md
+#	src/components/schedule/ScheduleGenerationStep.tsx
+#	src/components/schedule/types.ts
+#	src/templates/
+#	tsconfig.tsbuildinfo
+#

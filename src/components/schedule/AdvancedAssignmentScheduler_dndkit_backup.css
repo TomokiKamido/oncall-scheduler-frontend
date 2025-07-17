@@ -1,0 +1,2179 @@
+/* ResizeObserverエラー対策用のグローバルスタイル */
+* {
+  /* サイズ変更の抑制 */
+  contain: layout style;
+}
+
+/* ドラッグ関連要素のサイズ固定 */
+.dnd-context *,
+.dnd-drag-overlay *,
+.draggable-staff-item *,
+.droppable-group * {
+  /* レイアウトの完全な固定 */
+  contain: size layout style;
+  /* リサイズの完全な抑制 */
+  resize: none !important;
+  /* ボックスサイジングの固定 */
+  box-sizing: border-box !important;
+}
+
+.advanced-assignment-scheduler {
+  background: var(--card-bg);
+  border-radius: 16px;
+  padding: 24px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+  position: relative;
+  overflow: visible;
+  /* ResizeObserver対策 */
+  contain: layout style;
+}
+
+.scheduler-header {
+  margin-bottom: 24px;
+}
+
+.scheduler-header h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.scheduler-header p {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.date-range-selector {
+  display: flex;
+  align-items: end;
+  gap: 16px;
+  position: relative;
+  z-index: auto;
+  margin-top: 0;
+}
+
+.date-input {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  z-index: auto;
+}
+
+.date-input label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.date-input input {
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  min-width: 160px;
+  position: relative;
+  z-index: 1;
+  pointer-events: auto;
+}
+
+.date-input input:hover {
+  border-color: var(--primary-color);
+  background: var(--surface-light);
+}
+
+.date-input input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  background: var(--surface-light);
+  z-index: 1000;
+}
+
+/* カレンダーピッカーのスタイリング */
+.date-input input::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+  position: relative;
+  z-index: 2;
+  pointer-events: auto;
+}
+
+.date-input input::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.month-input input {
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  min-width: 160px;
+  position: relative;
+  z-index: 1;
+  pointer-events: auto;
+}
+
+.month-input input:hover {
+  border-color: var(--primary-color);
+  background: var(--surface-light);
+}
+
+.month-input input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  background: var(--surface-light);
+}
+
+.month-input input::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.month-input input::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.auto-dates-display {
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: var(--surface-light);
+  border-radius: 6px;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.scheduler-tabs {
+  display: flex;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: var(--bg-secondary);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px 8px 0 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-bottom: none;
+  margin-right: 4px;
+}
+
+.tab:hover {
+  background: var(--bg-hover);
+}
+
+.tab.active {
+  background: var(--card-bg);
+  color: var(--primary);
+  border-color: var(--primary);
+  border-bottom: 1px solid var(--card-bg);
+  margin-bottom: -1px;
+  z-index: 1;
+  position: relative;
+}
+
+/* グループ管理 */
+.groups-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 16px;
+}
+
+.group-card {
+  background: var(--card-bg);
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.group-card:hover {
+  border-color: var(--primary);
+  box-shadow: var(--shadow-lg);
+}
+
+.group-header {
+  display: flex;
+  justify-content: between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.group-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1f2937;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.group-color-indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.group-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.action-button {
+  padding: 6px;
+  border: none;
+  background: #e5e7eb;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.action-button:hover {
+  background: #d1d5db;
+}
+
+.action-button.edit:hover {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.action-button.delete:hover {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.group-members {
+  min-height: 100px;
+  background: var(--bg);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 16px;
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.group-rules {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rule-item {
+  padding: 8px 12px;
+  background: var(--bg);
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  font-size: 0.875rem;
+}
+
+.rule-item.custom {
+  background: var(--bg-secondary);
+}
+
+.unassigned-staff {
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid var(--border);
+}
+
+.unassigned-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #92400e;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.unassigned-members {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.unassigned-member {
+  background: #fbbf24;
+  color: white;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: move;
+  transition: transform 0.2s;
+}
+
+.unassigned-member:hover {
+  transform: translateY(-2px);
+}
+
+/* 制約管理（未使用） */
+.constraints-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.constraint-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  transition: all 0.2s ease;
+}
+
+.constraint-card:hover {
+  border-color: var(--primary);
+  box-shadow: var(--shadow-lg);
+}
+
+.constraint-header,
+.request-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.constraint-type,
+.request-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.constraint-status {
+  margin-top: 12px;
+}
+
+.request-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.request-date {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.request-type {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.request-type.vacation {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.request-type.required {
+  background: #f0f9ff;
+  color: #0284c7;
+}
+
+.request-type.preference {
+  background: #f7fee7;
+  color: #65a30d;
+}
+
+.request-reason {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* フォーム */
+.form-section {
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.form-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.form-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.btn {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.btn-primary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-lg);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--bg-secondary);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+  background: var(--bg-hover);
+}
+
+.btn-success {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-success:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-lg);
+}
+
+.btn-danger {
+  background: #ef4444;
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #dc2626;
+}
+
+/* 希望受付 */
+.requests-section {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 24px;
+}
+
+.requests-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.request-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  transition: all 0.2s ease;
+}
+
+.request-card:hover {
+  border-color: var(--primary);
+  box-shadow: var(--shadow-lg);
+}
+
+.request-info {
+  flex: 1;
+}
+
+.request-staff {
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 4px;
+}
+
+.request-details {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.request-type {
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  margin-left: 8px;
+}
+
+.request-type.vacation {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.request-type.required {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.request-type.preference {
+  background: #dcfce7;
+  color: #166534;
+}
+
+/* スケジュール生成 */
+.schedule-section {
+  text-align: center;
+  padding: 48px 24px;
+}
+
+.schedule-hero {
+  margin-bottom: 32px;
+}
+
+.schedule-icon {
+  width: 64px;
+  height: 64px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+  color: white;
+}
+
+.schedule-description {
+  font-size: 16px;
+  color: #6b7280;
+  max-width: 500px;
+  margin: 0 auto 32px;
+  line-height: 1.6;
+}
+
+.generate-button {
+  padding: 16px 32px;
+  font-size: 18px;
+  border-radius: 12px;
+  border: none;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 600;
+}
+
+.generate-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3);
+}
+
+.generate-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.generating {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* モーダル */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: var(--card-bg);
+  border-radius: 12px;
+  padding: 24px;
+  min-width: 500px;
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-header h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.btn-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: var(--bg-secondary);
+  color: var(--text);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-icon:hover {
+  background: var(--bg-hover);
+}
+
+.btn-icon.btn-danger {
+  color: #ef4444;
+}
+
+.btn-icon.btn-danger:hover {
+  background: #fef2f2;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+  margin: 0;
+  width: auto;
+}
+
+/* 日付設定セクション */
+.date-range-section {
+  margin-bottom: 32px;
+  padding: 20px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  position: relative;
+  overflow: visible;
+  z-index: 1;
+}
+
+.date-range-section h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 16px;
+}
+
+.date-separator {
+  display: flex;
+  align-items: center;
+  font-size: 1.125rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin: 0 16px;
+}
+
+/* メンバー一覧セクション */
+.members-section {
+  margin-bottom: 32px;
+  padding: 20px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.members-section h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 16px;
+}
+
+.members-list {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 12px;
+  padding: 16px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  min-height: 80px;
+  border: 2px dashed var(--border);
+  overflow-x: auto;
+}
+
+/* グループ分けセクション */
+.groups-section {
+  margin-bottom: 32px;
+  padding: 20px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.groups-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.groups-header h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.groups-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.group-zone {
+  background: var(--bg-secondary);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  transition: all 0.2s ease;
+}
+
+.group-zone:hover {
+  border-color: var(--primary);
+  box-shadow: var(--shadow-lg);
+}
+
+.group-zone-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.group-zone-header h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.group-members-zone {
+  min-height: 120px;
+  background: var(--card-bg);
+  border: 2px dashed var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-content: flex-start;
+}
+
+.empty-group-message {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 80px;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  font-style: italic;
+}
+
+/* グループ設定セクション */
+.group-section {
+  margin: 24px 0;
+  padding: 20px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.section-header h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0;
+}
+
+.section-icon {
+  width: 18px;
+  height: 18px;
+  color: var(--primary);
+}
+
+.settings-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.settings-button:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.group-selector {
+  margin-bottom: 16px;
+}
+
+.group-selector label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.group-select {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.875rem;
+  background: var(--input-bg);
+  color: var(--text);
+  transition: border-color 0.2s ease;
+}
+
+.group-select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-light);
+}
+
+.group-management {
+  border-top: 1px solid var(--border);
+  padding-top: 20px;
+}
+
+.group-creation {
+  margin-bottom: 24px;
+}
+
+.group-creation h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 12px;
+}
+
+.group-form {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.group-name-input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.875rem;
+  background: var(--input-bg);
+  color: var(--text);
+}
+
+.group-name-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-light);
+}
+
+.group-color-input {
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  background: none;
+  padding: 2px;
+}
+
+.add-group-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.add-group-button:hover:not(:disabled) {
+  background: var(--primary-dark);
+}
+
+.add-group-button:disabled {
+  background: var(--bg-muted);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.existing-groups h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 16px;
+}
+
+.group-item {
+  margin-bottom: 20px;
+  padding: 16px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.group-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.group-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.group-color-indicator {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+}
+
+.group-name {
+  font-weight: 500;
+  color: var(--text);
+}
+
+.group-count {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.delete-group-button {
+  padding: 6px;
+  background: var(--danger);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.delete-group-button:hover {
+  background: var(--danger-dark);
+}
+
+.group-staff-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 8px;
+}
+
+.staff-checkbox-item {
+  padding: 6px;
+}
+
+.staff-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  color: var(--text);
+}
+
+.staff-checkbox-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--primary);
+}
+
+.staff-inactive {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+/* カスタムルール設定セクション */
+.rule-section {
+  margin: 24px 0;
+  padding: 20px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.rule-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.rule-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.rule-toggle input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--primary);
+}
+
+.active-rules-summary {
+  margin: 16px 0;
+  padding: 12px;
+  background: var(--bg-secondary);
+  border-radius: 6px;
+  border-left: 4px solid var(--primary);
+}
+
+.active-rules-summary p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.rule-management {
+  border-top: 1px solid var(--border);
+  padding-top: 20px;
+}
+
+.rule-creation {
+  margin-bottom: 24px;
+}
+
+.rule-creation h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 12px;
+}
+
+.rule-form {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.rule-name-input {
+  flex: 1;
+  min-width: 200px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.875rem;
+  background: var(--input-bg);
+  color: var(--text);
+}
+
+.rule-type-select {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.875rem;
+  background: var(--input-bg);
+  color: var(--text);
+  min-width: 160px;
+}
+
+.add-rule-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.add-rule-button:hover:not(:disabled) {
+  background: var(--primary-dark);
+}
+
+.add-rule-button:disabled {
+  background: var(--bg-muted);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.existing-rules h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 16px;
+}
+
+.rule-item {
+  margin-bottom: 16px;
+  padding: 16px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.rule-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.rule-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.rule-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.rule-checkbox-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--primary);
+}
+
+.rule-disabled {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+.rule-type-badge {
+  padding: 4px 8px;
+  background: var(--primary-light);
+  color: var(--primary);
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.delete-rule-button {
+  padding: 6px;
+  background: var(--danger);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.delete-rule-button:hover {
+  background: var(--danger-dark);
+}
+
+.rule-settings {
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.rule-setting-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rule-setting-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+}
+
+.rule-setting-item label {
+  min-width: 120px;
+  color: var(--text);
+  font-weight: 500;
+}
+
+.rule-number-input {
+  width: 80px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 0.875rem;
+  background: var(--input-bg);
+  color: var(--text);
+  text-align: center;
+}
+
+.rule-range-input {
+  flex: 1;
+  max-width: 200px;
+  accent-color: var(--primary);
+}
+
+.rule-setting-item span {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+/* スケジュール表示切り替え機能 */
+.schedule-display-section {
+  margin: 24px 0;
+  padding: 20px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.schedule-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.schedule-header h4 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.view-mode-selector {
+  display: flex;
+  gap: 4px;
+  background: var(--bg-secondary);
+  padding: 4px;
+  border-radius: 8px;
+}
+
+.view-mode-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.view-mode-button:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.view-mode-button.active {
+  background: var(--primary);
+  color: white;
+}
+
+.schedule-content {
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+/* カレンダー表示 */
+.calendar-view {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.calendar-header {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  background: var(--surface);
+}
+
+.weekday {
+  padding: 12px 8px;
+  text-align: center;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--text);
+  background: var(--surface);
+}
+
+.calendar-week {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+
+.calendar-day {
+  min-height: 80px;
+  padding: 8px;
+  background: var(--card-bg);
+  border-right: 1px solid var(--border);
+  position: relative;
+}
+
+.calendar-day:last-child {
+  border-right: none;
+}
+
+.day-number {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.assignment-item {
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  margin-bottom: 2px;
+}
+
+.assignment-item.shift-day {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.assignment-item.shift-night {
+  background: #f3e8ff;
+  color: #7c3aed;
+}
+
+.staff-name {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shift-type {
+  font-size: 0.7rem;
+  opacity: 0.8;
+}
+
+/* テーブル表示 */
+.table-view {
+  overflow-x: auto;
+}
+
+.schedule-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.schedule-table th {
+  padding: 12px 8px;
+  text-align: left;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--surface);
+  border-bottom: 2px solid var(--border);
+}
+
+.schedule-table td {
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+}
+
+.table-row:hover {
+  background: var(--bg-hover);
+}
+
+.table-row.shift-day {
+  border-left: 4px solid #3b82f6;
+}
+
+.table-row.shift-night {
+  border-left: 4px solid #8b5cf6;
+}
+
+.date-cell {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.weekday-cell {
+  text-align: center;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.staff-cell {
+  font-weight: 500;
+}
+
+.shift-cell {
+  text-align: center;
+}
+
+.shift-badge {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.shift-badge.shift-day {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.shift-badge.shift-night {
+  background: #f3e8ff;
+  color: #7c3aed;
+}
+
+.department-cell {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+/* メンバー別表示 */
+.member-view {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.member-filter {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--surface);
+  border-radius: 8px;
+}
+
+.member-filter label {
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.staff-filter-select {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--input-bg);
+  color: var(--text);
+  font-size: 0.875rem;
+}
+
+.member-card {
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.member-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.member-header h4 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.member-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: right;
+  font-size: 0.875rem;
+}
+
+.department {
+  color: var(--text-muted);
+}
+
+.assignment-count {
+  font-weight: 500;
+  color: var(--text);
+}
+
+.shift-breakdown {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.member-assignments {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 8px;
+}
+
+.member-assignments .assignment-item {
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  border-radius: 6px;
+  text-align: center;
+  font-size: 0.8rem;
+}
+
+.assignment-date {
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.assignment-shift {
+  font-size: 0.75rem;
+  opacity: 0.9;
+}
+
+.no-schedule-message {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-muted);
+}
+
+.no-schedule-message p {
+  margin: 0;
+  font-size: 1rem;
+}
+
+/* ドラッグ&ドロップ表示 */
+.drag-view {
+  padding: 20px 0;
+}
+
+.drag-container {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 24px;
+  min-height: 500px;
+}
+
+.unassigned-staff-pool {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.unassigned-staff-pool h5 {
+  margin: 0 0 16px 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.staff-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.draggable-staff-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: grab;
+  transition: all 0.2s ease;
+}
+
+.draggable-staff-item:hover {
+  background: var(--bg-hover);
+  border-color: var(--primary);
+}
+
+.draggable-staff-item:active {
+  cursor: grabbing;
+}
+
+/* ドラッグ中のスタッフカードのスタイル - ResizeObserverエラー対策 */
+.draggable-staff-item.dragging {
+  background: #1e293b !important;
+  border: 2px solid #3b82f6 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15), 0 4px 12px rgba(59, 130, 246, 0.3) !important;
+  transform: rotate(3deg) !important;
+  opacity: 0.95 !important;
+  cursor: grabbing !important;
+  z-index: 1000 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 12px !important;
+  min-width: 200px !important;
+  max-width: 250px !important;
+  /* ResizeObserverエラーを防ぐための固定サイズ設定 */
+  width: 220px !important;
+  height: auto !important;
+  overflow: hidden !important;
+  white-space: nowrap !important;
+  /* アニメーションやトランジションを無効化してリサイズを防ぐ */
+  transition: none !important;
+  animation: none !important;
+  /* レイアウトの変更を防ぐ */
+  position: fixed !important;
+  pointer-events: none !important;
+}
+
+/* DragOverlay専用のスタイル - ResizeObserverエラー対策強化版 */
+.dnd-drag-overlay {
+  pointer-events: none !important;
+  z-index: 9999 !important;
+  /* レイアウトの変更を防ぐ */
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  overflow: hidden !important;
+  /* ResizeObserver対策 */
+  contain: size layout style !important;
+  will-change: auto !important;
+  transform: translateZ(0) !important;
+}
+
+/* DragOverlay内での確実な表示とリサイズ防止 */
+.draggable-staff-item.dragging .staff-avatar {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 50% !important;
+  background: #3b82f6 !important;
+  color: white !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 0.875rem !important;
+  font-weight: 600 !important;
+}
+
+.draggable-staff-item.dragging .staff-info {
+  flex: 1 !important;
+  display: block !important;
+}
+
+.draggable-staff-item.dragging .staff-name {
+  font-weight: 500 !important;
+  color: #f8fafc !important;
+  font-size: 0.875rem !important;
+  margin-bottom: 2px !important;
+}
+
+.draggable-staff-item.dragging .staff-department {
+  font-size: 0.75rem !important;
+  color: #cbd5e1 !important;
+}
+
+.draggable-staff-item.dragging .drag-handle {
+  color: #94a3b8 !important;
+  flex-shrink: 0 !important;
+}
+
+.staff-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.staff-info {
+  flex: 1;
+}
+
+.staff-info .staff-name {
+  font-weight: 500;
+  color: var(--text);
+  font-size: 0.875rem;
+}
+
+.staff-info .staff-department {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.drag-handle {
+  color: var(--text-muted);
+}
+
+.no-unassigned-staff {
+  text-align: center;
+  padding: 20px;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  border: 2px dashed var(--border);
+  border-radius: 8px;
+}
+
+.assignments-pool {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.assignments-pool h5 {
+  margin: 0 0 16px 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.assignments-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 12px;
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.droppable-assignment-item {
+  background: var(--card-bg);
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 80px;
+}
+
+.droppable-assignment-item:hover {
+  border-color: var(--primary-light);
+}
+
+.droppable-assignment-item.assigned {
+  border-color: var(--success);
+}
+
+.droppable-assignment-item.unassigned {
+  border-style: dashed;
+  border-color: var(--text-muted);
+}
+
+.droppable-assignment-item.shift-day {
+  border-left: 4px solid #3b82f6;
+}
+
+.droppable-assignment-item.shift-night {
+  border-left: 4px solid #8b5cf6;
+}
+
+.assignment-date {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.assignment-content {
+  position: relative;
+}
+
+.assigned-staff {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.assigned-staff .staff-name {
+  font-weight: 500;
+  color: var(--text);
+  font-size: 0.875rem;
+}
+
+.assigned-staff .shift-info {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.remove-staff-button {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--danger);
+  color: white;
+  border: none;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease;
+}
+
+.remove-staff-button:hover {
+  background: var(--danger-dark);
+}
+
+.unassigned-slot {
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.unassigned-slot .shift-info {
+  font-size: 0.75rem;
+  margin-bottom: 4px;
+}
+
+.drop-hint {
+  font-size: 0.75rem;
+  font-style: italic;
+}
+
+.drag-overlay-staff {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--primary);
+  color: white;
+  border-radius: 6px;
+  box-shadow: var(--shadow-lg);
+  pointer-events: none;
+}
+
+.drag-overlay-staff .staff-avatar {
+  width: 24px;
+  height: 24px;
+  background: rgba(255, 255, 255, 0.2);
+  font-size: 0.75rem;
+}
+
+.drag-overlay-staff .staff-name {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+/* グループ設定のドラッグ&ドロップUI */
+.drag-drop-group-manager {
+  display: flex;
+  gap: 20px;
+  margin-top: 16px;
+}
+
+.unassigned-staff-section {
+  flex: 0 0 300px;
+}
+
+.unassigned-staff-section h5 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--primary);
+}
+
+.unassigned-pool {
+  min-height: 200px;
+  background: var(--bg-secondary);
+  border: 2px dashed var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  transition: all 0.2s ease;
+}
+
+.unassigned-pool:hover {
+  border-color: var(--primary);
+  background: var(--primary-light);
+}
+
+.unassigned-pool.drag-over {
+  border-color: var(--primary);
+  background: var(--primary-light);
+  transform: scale(1.02);
+}
+
+.groups-container {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.group-staff-drop-zone {
+  min-height: 140px;
+  max-height: none; /* 高さ制限を削除 */
+  background: var(--bg-secondary);
+  border: 2px dashed transparent;
+  border-radius: 8px;
+  padding: 12px;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow-y: auto; /* スタッフが多い場合にスクロール可能 */
+  /* 明確なドロップターゲットとして認識させる */
+  cursor: default;
+}
+
+.group-staff-drop-zone:hover {
+  border-color: var(--border);
+  background: rgba(59, 130, 246, 0.05);
+}
+
+.group-staff-drop-zone.drag-over {
+  border-color: var(--primary);
+  background: var(--primary-light);
+  transform: scale(1.02);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.empty-group,
+.empty-pool {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100px;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  text-align: center;
+  gap: 8px;
+}
+
+.empty-group svg,
+.empty-pool svg {
+  opacity: 0.5;
+}
+
+.dragged-staff-item {
+  background: var(--primary);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  box-shadow: var(--shadow-lg);
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* グループ内のスタッフアイテムスタイル調整 */
+.group-staff-drop-zone .draggable-staff-item {
+  margin-bottom: 8px;
+  cursor: grab;
+}
+
+.group-staff-drop-zone .draggable-staff-item:active {
+  cursor: grabbing;
+}
+
+.group-staff-drop-zone .draggable-staff-item:last-child {
+  margin-bottom: 0;
+}
+
+/* 未割り当てプール内のスタッフアイテム */
+.unassigned-pool .draggable-staff-item {
+  margin-bottom: 8px;
+  cursor: grab;
+}
+
+.unassigned-pool .draggable-staff-item:active {
+  cursor: grabbing;
+}
+
+.unassigned-pool .draggable-staff-item:last-child {
+  margin-bottom: 0;
+}

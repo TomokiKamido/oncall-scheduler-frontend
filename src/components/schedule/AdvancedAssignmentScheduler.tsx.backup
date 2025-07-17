@@ -1,0 +1,524 @@
+import React, { useState } from 'react';
+import { Zap } from 'lucide-react';
+import { Staff, Assignment } from '../../types';
+import './AdvancedAssignmentScheduler.css';
+
+interface AdvancedAssignmentSchedulerProps {
+  staffMembers: Staff[];
+  onAssignmentsChange: (assignments: Assignment[]) => void;
+}
+
+// ドラッグ可能なスタッフアイテムコンポーネント
+const DraggableStaffItem: React.FC<{ staff: Staff }> = ({ staff }) => {
+  const [{ isDragging }, drag] = useDrag(() => ({
+    type: ItemTypes.STAFF,
+    item: { id: staff.id, staff },
+    collect: (monitor) => ({
+      isDragging: monitor.isDragging(),
+    }),
+  }), [staff]);
+
+  return (
+    <div
+      ref={drag}
+      className={`draggable-staff-item ${isDragging ? 'dragging' : ''}`}
+      style={{
+        opacity: isDragging ? 0.5 : 1,
+        cursor: 'grab',
+      }}
+    >
+      <div className="staff-avatar">
+        {staff.name.substring(0, 2)}
+      </div>
+      <div className="staff-info">
+        <div className="staff-name">{staff.name}</div>
+        <div className="staff-department">{staff.department || '部署不明'}</div>
+      </div>
+      <Move size={16} className="drag-handle" />
+    </div>
+  );
+};
+
+// ドロップ可能なグループゾーンコンポーネント
+const DroppableGroupZone: React.FC<{
+  groupId: string;
+  children: React.ReactNode;
+  onDrop: (item: DragItem, groupId: string) => void;
+}> = ({ groupId, children, onDrop }) => {
+  const [{ isOver, canDrop }, drop] = useDrop(() => ({
+    accept: ItemTypes.STAFF,
+    drop: (item: DragItem) => {
+      onDrop(item, groupId);
+      return { groupId };
+    },
+    collect: (monitor) => ({
+      isOver: monitor.isOver(),
+      canDrop: monitor.canDrop(),
+    }),
+  }), [groupId, onDrop]);
+
+  const isActive = isOver && canDrop;
+
+  return (
+    <div
+      ref={drop}
+      className={`group-staff-drop-zone droppable-zone ${
+        isActive ? 'active' : ''
+      } ${canDrop ? 'can-drop' : ''}`}
+      style={{
+        minHeight: '100px',
+        padding: '16px',
+        border: '2px dashed #94a3b8',
+        backgroundColor: isActive ? 'rgba(59, 130, 246, 0.15)' : 'rgba(148, 163, 184, 0.05)',
+        borderColor: isActive ? '#3b82f6' : '#94a3b8',
+        borderRadius: '8px',
+      }}
+    >
+      {!children || (Array.isArray(children) && children.length === 0) ? (
+        <div style={{ 
+          textAlign: 'center', 
+          color: '#94a3b8', 
+          fontSize: '0.875rem',
+          fontStyle: 'italic',
+          padding: '20px 0'
+        }}>
+          スタッフをここにドロップ
+        </div>
+      ) : null}
+      {children}
+    </div>
+  );
+};
+
+// ドロップ可能な未割り当てゾーンコンポーネント
+const DroppableUnassignedZone: React.FC<{
+  children: React.ReactNode;
+  onDrop: (item: DragItem) => void;
+}> = ({ children, onDrop }) => {
+  const [{ isOver, canDrop }, drop] = useDrop(() => ({
+    accept: ItemTypes.STAFF,
+    drop: (item: DragItem) => {
+      onDrop(item);
+      return { unassigned: true };
+    },
+    collect: (monitor) => ({
+      isOver: monitor.isOver(),
+      canDrop: monitor.canDrop(),
+    }),
+  }), [onDrop]);
+
+  const isActive = isOver && canDrop;
+
+  return (
+    <div
+      ref={drop}
+      className={`unassigned-staff-drop-zone droppable-zone ${
+        isActive ? 'active' : ''
+      } ${canDrop ? 'can-drop' : ''}`}
+      style={{
+        minHeight: '100px',
+        padding: '16px',
+        border: '2px dashed #10b981',
+        backgroundColor: isActive ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.02)',
+        borderColor: isActive ? '#10b981' : '#10b981',
+        borderRadius: '8px',
+      }}
+    >
+      {children}
+    </div>
+  );
+};
+
+const AdvancedAssignmentScheduler: React.FC<AdvancedAssignmentSchedulerProps> = ({ 
+  staffMembers, 
+  onAssignmentsChange 
+}) => {
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+
+  // ステップ管理
+  const [currentStep, setCurrentStep] = useState(1);
+
+  // 期間設定方式
+  const [dateRangeMode, setDateRangeMode] = useState<'custom' | 'monthly'>('custom');
+  const [selectedMonth, setSelectedMonth] = useState<string>('');
+
+  // グループ設定（テスト用に1つデフォルトで追加）
+  const [groups, setGroups] = useState<Group[]>([
+    {
+      id: 'test-group-1',
+      name: 'テストグループ1',
+      color: '#3b82f6',
+      staffIds: [],
+      isActive: true
+    }
+  ]);
+  // 将来使用予定の状態変数（現在は一時的にコメントアウト）
+  // const [selectedGroup, setSelectedGroup] = useState<string>('all');
+  // const [showGroupSettings, setShowGroupSettings] = useState(false);
+  // const [newGroupName, setNewGroupName] = useState('');
+  // const [newGroupColor, setNewGroupColor] = useState('#3b82f6');
+
+  // 手順管理の状態
+  const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
+
+  // スケジュール設定の手順定義
+  const scheduleSteps = [
+    {
+      step: 1,
+      title: '期間設定',
+      description: 'スケジュールの対象期間を設定してください',
+      icon: '📅',
+      isCompleted: () => startDate && endDate,
+    },
+    {
+      step: 2,
+      title: 'スタッフ管理',
+      description: 'スタッフをグループに割り当ててください',
+      icon: '👥',
+      isCompleted: () => groups.some(group => group.staffIds.length > 0),
+    },
+    {
+      step: 3,
+      title: 'カスタムルール',
+      description: 'スケジュール作成のルールを設定してください',
+      icon: '⚙️',
+      isCompleted: () => true, // カスタムルールの完了条件（後で実装）
+    },
+    {
+      step: 4,
+      title: '最適スケジュール作成',
+      description: '設定に基づいてスケジュールを生成します',
+      icon: '✨',
+      isCompleted: () => assignments.length > 0,
+    },
+  ];
+
+  // ステップ完了チェック
+  useEffect(() => {
+    const newCompletedSteps = new Set<number>();
+    scheduleSteps.forEach(stepInfo => {
+      if (stepInfo.isCompleted()) {
+        newCompletedSteps.add(stepInfo.step);
+      }
+    });
+    setCompletedSteps(newCompletedSteps);
+  }, [startDate, endDate, groups, assignments]);
+
+  // 次のステップへ進む
+  const goToNextStep = useCallback(() => {
+    if (currentStep < scheduleSteps.length) {
+      setCurrentStep(currentStep + 1);
+    }
+  }, [currentStep]);
+
+  // 前のステップへ戻る
+  const goToPreviousStep = useCallback(() => {
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1);
+    }
+  }, [currentStep]);
+
+  // 初期日付設定
+  useEffect(() => {
+    const today = new Date();
+    const twoWeeksLater = new Date();
+    twoWeeksLater.setDate(today.getDate() + 14);
+    
+    const startDateStr = today.toISOString().split('T')[0];
+    const endDateStr = twoWeeksLater.toISOString().split('T')[0];
+    
+    if (dateRangeMode === 'custom') {
+      setStartDate(startDateStr);
+      setEndDate(endDateStr);
+    }
+    
+    const currentMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+    setSelectedMonth(currentMonth);
+  }, [dateRangeMode]);
+
+  // 月毎設定時の日付自動設定
+  useEffect(() => {
+    if (dateRangeMode === 'monthly' && selectedMonth) {
+      const [year, month] = selectedMonth.split('-');
+      const yearNum = parseInt(year);
+      const monthNum = parseInt(month);
+      
+      const startDateStr = `${year}-${month}-01`;
+      const lastDay = new Date(yearNum, monthNum, 0).getDate();
+      const endDateStr = `${year}-${month}-${String(lastDay).padStart(2, '0')}`;
+      
+      setStartDate(startDateStr);
+      setEndDate(endDateStr);
+    }
+  }, [dateRangeMode, selectedMonth]);
+
+  // 将来使用予定の関数（現在は一時的にコメントアウト）
+  /*
+  // フィルタリングされたスタッフメンバーを取得
+  const getFilteredStaffMembers = useCallback(() => {
+    if (selectedGroup === 'all') {
+      return staffMembers;
+    } else if (selectedGroup === 'unassigned') {
+      return staffMembers.filter(staff => 
+        !groups.some(group => group.staffIds.includes(staff.id))
+      );
+    } else {
+      const group = groups.find(g => g.id === selectedGroup);
+      return staffMembers.filter(staff => 
+        group?.staffIds.includes(staff.id) || false
+      );
+    }
+  }, [selectedGroup, staffMembers, groups]);
+
+  // ドロップハンドラー: スタッフをグループに追加
+  const handleStaffToGroupDrop = useCallback((item: DragItem, groupId: string) => {
+    console.log('Staff dropped to group:', { staffId: item.id, staffName: item.staff.name, groupId });
+    
+    setGroups(prevGroups => {
+      return prevGroups.map(group => {
+        if (group.id === groupId) {
+          // 既にグループに存在するかチェック
+          if (!group.staffIds.includes(item.id)) {
+            return {
+              ...group,
+              staffIds: [...group.staffIds, item.id]
+            };
+          }
+        } else {
+          // 他のグループから削除
+          return {
+            ...group,
+            staffIds: group.staffIds.filter(staffId => staffId !== item.id)
+          };
+        }
+        return group;
+      });
+    });
+  }, []);
+
+  // ドロップハンドラー: スタッフを未割り当てに戻す
+  const handleStaffToUnassignedDrop = useCallback((item: DragItem) => {
+    console.log('Staff dropped to unassigned:', { staffId: item.id, staffName: item.staff.name });
+    
+    setGroups(prevGroups => {
+      return prevGroups.map(group => ({
+        ...group,
+        staffIds: group.staffIds.filter(staffId => staffId !== item.id)
+      }));
+    });
+  }, []);
+
+  // グループ作成
+  const createGroup = () => {
+    if (!newGroupName.trim()) return;
+    
+    const newGroup: Group = {
+      id: `group-${Date.now()}`,
+      name: newGroupName.trim(),
+      color: newGroupColor,
+      staffIds: [],
+      isActive: true
+    };
+    
+    setGroups(prev => [...prev, newGroup]);
+    setNewGroupName('');
+    setNewGroupColor('#3b82f6');
+  };
+
+  // グループ削除
+  const deleteGroup = (groupId: string) => {
+    setGroups(prev => prev.filter(group => group.id !== groupId));
+  };
+
+  // 最適なスケジュール生成
+  const generateOptimalSchedule = () => {
+    const filteredStaff = getFilteredStaffMembers();
+    
+    if (!Array.isArray(filteredStaff) || filteredStaff.length === 0) {
+      alert('スタッフが選択されていません');
+      return;
+    }
+
+    if (!startDate || !endDate) {
+      alert('開始日と終了日を設定してください');
+      return;
+    }
+
+    const dateRange = generateDateRange(startDate, endDate);
+    const newAssignments: Assignment[] = [];
+
+    dateRange.forEach((date, dateIndex) => {
+      // 日勤と夜勤の両方を割り当て
+      ['day', 'night'].forEach((shift, shiftIndex) => {
+        const staffIndex = (dateIndex + shiftIndex) % filteredStaff.length;
+        const assignedStaff = filteredStaff[staffIndex];
+        
+        newAssignments.push({
+          id: `${date}-${shift}`,
+          date,
+          shift: shift as 'day' | 'night',
+          staffId: assignedStaff.id,
+          staffName: assignedStaff.name
+        });
+      });
+    });
+
+    setAssignments(newAssignments);
+    onAssignmentsChange(newAssignments);
+  };
+  */
+
+  return (
+    <DndProvider backend={HTML5Backend}>
+      <div className="advanced-assignment-scheduler">
+        {/* タイトル */}
+        <div className="scheduler-header">
+          <h3 className="scheduler-title">
+            <Zap className="scheduler-icon" />
+            高度なスケジュール設定
+          </h3>
+        </div>
+
+        {/* プログレス表示 - 暫定実装 */}
+        <div className="schedule-progress">
+          <div className="progress-header">
+            <h4>設定手順</h4>
+            <span className="progress-text">
+              ステップ 1 / 4
+            </span>
+          </div>
+          
+          {/* 暫定的なプログレス表示 */}
+          <div className="progress-steps">
+            <div className="progress-step active">
+              <div className="step-icon">📅</div>
+              <div className="step-info">
+                <div className="step-title">期間設定</div>
+                <div className="step-description">スケジュールの対象期間を設定してください</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ステップ1: 期間設定 */}
+        {currentStep === 1 && (
+          <div className="date-range-section step-section">
+            <h4>
+              <span className="step-number">1</span>
+              期間設定
+            </h4>
+            
+            <div className="date-range-mode">
+              <label>
+                <input
+                  type="radio"
+                  value="custom"
+                  checked={dateRangeMode === 'custom'}
+                  onChange={(e) => setDateRangeMode(e.target.value as 'custom')}
+                />
+                カスタム期間
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  value="monthly"
+                  checked={dateRangeMode === 'monthly'}
+                  onChange={(e) => setDateRangeMode(e.target.value as 'monthly')}
+                />
+                月単位
+              </label>
+            </div>
+
+            {dateRangeMode === 'custom' ? (
+              <div className="custom-date-range">
+                <div className="date-input">
+                  <label>開始日</label>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                  />
+                </div>
+                <div className="date-input">
+                  <label>終了日</label>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="monthly-date-range">
+                <div className="date-input">
+                  <label>対象月</label>
+                  <input
+                    type="month"
+                    value={selectedMonth}
+                    onChange={(e) => setSelectedMonth(e.target.value)}
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="step-completion">
+              {startDate && endDate ? (
+                <div className="completion-status completed">
+                  ✓ 期間設定が完了しました
+                </div>
+              ) : (
+                <div className="completion-status incomplete">
+                  期間を設定してください
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* 他のステップは将来実装予定 */}
+        
+        {/* Navigation */}
+        <div className="step-navigation">
+          <div className="step-buttons">
+            {/* 暫定的なナビゲーション */}
+            <button
+              className="btn-secondary"
+              disabled={true}
+            >
+              ← 前へ
+            </button>
+            <button
+              className="btn-primary"
+              disabled={true}
+            >
+              次へ
+            </button>
+          </div>
+          
+          <button
+            className="generate-button"
+            disabled={!startDate || !endDate}
+            onClick={() => {
+              if (!startDate || !endDate) {
+                alert('開始日と終了日を設定してください');
+                return;
+              }
+              alert('スケジュール生成機能は今後実装予定です');
+            }}
+          >
+            <Zap size={16} />
+            最適スケジュール生成
+          </button>
+        </div>
+
+        {/* 今後のフェーズで追加予定の機能 */}
+        {/* スタッフ管理、グループ設定、カスタムルール等は段階的に実装します */}
+        
+      </div>
+    </DndProvider>
+  );
+};
+
+export default AdvancedAssignmentScheduler;

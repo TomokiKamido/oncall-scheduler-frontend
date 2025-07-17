@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OnCall Pro - 接続テスト</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            text-align: center;
+            max-width: 800px;
+            background: rgba(255,255,255,0.1);
+            padding: 40px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+        }
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .status {
+            background: rgba(76, 175, 80, 0.2);
+            border: 2px solid #4CAF50;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        .instructions {
+            text-align: left;
+            background: rgba(255,255,255,0.05);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        .step {
+            margin: 10px 0;
+            padding: 10px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 5px;
+        }
+        code {
+            background: rgba(0,0,0,0.3);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Monaco', 'Menlo', monospace;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .card {
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .success { color: #4CAF50; }
+        .warning { color: #FF9800; }
+        .error { color: #F44336; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>OnCall Pro</h1>
+        <div class="status">
+            <h2>✅ HTMLファイル読み込み成功</h2>
+            <p>この画面が表示されているということは、基本的なファイルアクセスは動作しています</p>
+        </div>
+
+        <div class="instructions">
+            <h3>🔧 サーバー起動手順</h3>
+            
+            <div class="step">
+                <strong>1. ターミナルを開いて以下を実行：</strong><br>
+                <code>cd /Users/kamidotomoki/Documents/oncall-scheduler/frontend2/oncall-scheduler-frontend</code>
+            </div>
+
+            <div class="step">
+                <strong>2. Node.jsバージョン確認：</strong><br>
+                <code>node --version</code><br>
+                <span class="warning">※ v16以上推奨、v22の場合はOpenSSLオプションが必要</span>
+            </div>
+
+            <div class="step">
+                <strong>3. 依存関係インストール：</strong><br>
+                <code>npm install</code>
+            </div>
+
+            <div class="step">
+                <strong>4. サーバー起動（以下のいずれかを試行）：</strong><br>
+                <code>npm run start:port</code><br>
+                または<br>
+                <code>PORT=8080 NODE_OPTIONS="--openssl-legacy-provider" npm start</code><br>
+                または<br>
+                <code>npm start</code>
+            </div>
+        </div>
+
+        <div class="grid">
+            <div class="card">
+                <h4>🌐 アクセスURL</h4>
+                <p>サーバー起動後：</p>
+                <p><code>http://localhost:3000</code></p>
+                <p><code>http://localhost:8080</code></p>
+            </div>
+            <div class="card">
+                <h4>🔍 トラブルシューティング</h4>
+                <p>ポート使用確認：</p>
+                <p><code>lsof -i :3000</code></p>
+                <p><code>lsof -i :8080</code></p>
+            </div>
+            <div class="card">
+                <h4>🛠️ 代替方法</h4>
+                <p>ビルド後の配信：</p>
+                <p><code>npm run build</code></p>
+                <p><code>npx serve -s build -l 8080</code></p>
+            </div>
+            <div class="card">
+                <h4>🐍 Python代替</h4>
+                <p>Pythonサーバー：</p>
+                <p><code>python3 -m http.server 8080</code></p>
+                <p>（publicディレクトリで実行）</p>
+            </div>
+        </div>
+
+        <div id="connection-test">
+            <h3>🔌 接続テスト</h3>
+            <div id="test-results"></div>
+        </div>
+    </div>
+
+    <script>
+        // 接続テスト
+        function testConnections() {
+            const testResults = document.getElementById('test-results');
+            const ports = [3000, 8080, 3001, 4000];
+            
+            testResults.innerHTML = '<p>接続テスト実行中...</p>';
+            
+            ports.forEach(port => {
+                const img = new Image();
+                const timeout = setTimeout(() => {
+                    addResult(port, 'timeout', '❌ タイムアウト');
+                }, 3000);
+                
+                img.onload = () => {
+                    clearTimeout(timeout);
+                    addResult(port, 'success', '✅ 接続可能');
+                };
+                
+                img.onerror = () => {
+                    clearTimeout(timeout);
+                    addResult(port, 'error', '❌ 接続不可');
+                };
+                
+                img.src = `http://localhost:${port}/favicon.ico?t=${Date.now()}`;
+            });
+        }
+        
+        function addResult(port, status, message) {
+            const testResults = document.getElementById('test-results');
+            const div = document.createElement('div');
+            div.className = `step ${status}`;
+            div.innerHTML = `<strong>Port ${port}:</strong> ${message}`;
+            testResults.appendChild(div);
+        }
+        
+        // ページ読み込み後にテスト実行
+        setTimeout(testConnections, 1000);
+        
+        // 現在時刻を表示
+        setInterval(() => {
+            const now = new Date();
+            console.log(`[${now.toLocaleTimeString()}] OnCall Pro テストページ稼働中`);
+        }, 5000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,69 @@
+{
+    // GitHub Copilotを厳格に制限
+    "github.copilot.enable": {
+        "*": true,
+        "plaintext": true,
+        "markdown": false,
+        "scminput": false,
+        "yaml": true,
+        "typescript": false,
+        "typescriptreact": true,
+        "javascript": false,
+        "javascriptreact": true,
+        "css": true,
+        "scss": true,
+        "json": false,
+        "tsx": false,
+        "jsx": false
+    },
+    "github.copilot.advanced": {
+        "edit": {
+            "enabled": false
+        }
+    },
+    "github.copilot.nextEditSuggestions.enabled": true,
+    
+    // 自動化機能を全て無効化
+    "editor.formatOnSave": false,
+    "editor.formatOnPaste": false,
+    "editor.formatOnType": false,
+    "editor.codeActionsOnSave": {},
+    "typescript.suggest.autoImports": false,
+    "typescript.updateImportsOnFileMove.enabled": "never",
+    "javascript.suggest.autoImports": false,
+    "javascript.updateImportsOnFileMove.enabled": "never",
+    
+    // 拡張機能による自動修正を無効化
+    "eslint.autoFixOnSave": false,
+    "prettier.requireConfig": true,
+    "prettier.disableLanguages": ["typescript", "javascript", "tsx", "jsx"],
+    
+    // 警告表示
+    "files.associations": {
+        "*.tsx": "COPILOT_DISABLED_TSX",
+        "*.ts": "COPILOT_DISABLED_TS"
+    },
+    
+    // エージェントモード使用時のルール
+    "oncall-scheduler.agent.rules": {
+        "description": "エージェントに依頼する際の必須手順",
+        "workflow": [
+            "1. 依頼内容の詳細分析と解釈",
+            "2. 具体的な実施計画と変更内容の明示",
+            "3. 影響範囲と注意点の説明",
+            "4. ユーザーからの明示的な実行許可の確認",
+            "5. 許可後のみコード変更等を実施"
+        ],
+        "requiredApproval": [
+            "「実行してください」",
+            "「進めてください」",
+            "「許可します」",
+            "等の明確な実行許可が必要"
+        ],
+        "prohibited": [
+            "許可なしでのコード変更",
+            "曖昧な指示での自動実行",
+            "影響範囲の説明なしでの変更"
+        ]
+    }
+}

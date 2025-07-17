@@ -1,0 +1,21 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Start React Server",
+			"type": "shell",
+			"command": "PORT=8080 NODE_OPTIONS='--openssl-legacy-provider' npm start",
+			"group": "build",
+			"isBackground": true,
+			"problemMatcher": []
+		},
+		{
+			"label": "Start React Server Build",
+			"type": "shell",
+			"command": "npm run build && npx serve -s build -l 8080",
+			"group": "build",
+			"isBackground": true,
+			"problemMatcher": []
+		}
+	]
+}

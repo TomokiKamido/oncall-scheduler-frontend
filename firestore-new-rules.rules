@@ -1,0 +1,96 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function getUserPermission() {
+      return get(/databases/$(database)/documents/permissions/$(request.auth.uid)).data;
+    }
+    
+    function hasRole(role) {
+      return isAuthenticated() && getUserPermission().role == role;
+    }
+    
+    function isAdmin() {
+      return hasRole('admin');
+    }
+    
+    function isManager() {
+      return hasRole('manager');
+    }
+    
+    function isStaff() {
+      return hasRole('staff');
+    }
+    
+    function isAdminOrManager() {
+      return isAdmin() || isManager();
+    }
+    
+    // Permissions collection - 新しい権限システムの中核
+    match /permissions/{userId} {
+      // 自分の権限は読める、管理者は全ての権限を読める
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      
+      // 管理者のみが権限を変更できる
+      allow write: if isAdmin();
+      
+      // 新規ユーザーは自分の権限を staff として作成できる（初回のみ）
+      allow create: if isAuthenticated() && 
+        request.auth.uid == userId && 
+        request.resource.data.role == 'staff' &&
+        request.resource.data.email == request.auth.token.email;
+    }
+    
+    // Users collection (legacy, 読み取り専用)
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if false; // 新しいシステムでは書き込み禁止
+    }
+    
+    // Departments collection
+    match /departments/{departmentId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdminOrManager();
+    }
+    
+    // Schedules collection
+    match /schedules/{scheduleId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdminOrManager();
+    }
+    
+    // Staff collection
+    match /staff/{staffId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdminOrManager();
+    }
+    
+    // Assignments collection
+    match /assignments/{assignmentId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdminOrManager();
+    }
+    
+    // Reports and analytics
+    match /reports/{reportId} {
+      allow read: if isAdminOrManager();
+      allow write: if isAdmin();
+    }
+    
+    // Configuration
+    match /config/{configId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+    
+    // Default rule for other collections
+    match /{document=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+  }
+}
