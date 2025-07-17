@@ -1,7 +1,7 @@
 import React, { Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth } from './config/firebase';
+// import { useAuthState } from 'react-firebase-hooks/auth';
+// import { auth } from './config/firebase';
 import { AuthProvider } from './contexts/AuthContext';
 import { RequireRole } from './router/roleGuard';
 import Header from './components/common/Header';
@@ -139,7 +139,7 @@ const LoadingSpinner = () => (
 );
 
 function App() {
-  const [user] = useAuthState(auth);
+  // const [user] = useAuthState(auth); // 未使用のためコメントアウト
 
   return (
     <ErrorBoundary>

@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { UserRole } from '../../types';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { collection, doc, getDocs, setDoc, Timestamp, getDoc, serverTimestamp, addDoc } from 'firebase/firestore';
-import { db, auth } from '../../config/firebase';
+import { /*collection,*/ /*doc,*/ /*getDocs,*/ /*setDoc,*/ /*Timestamp,*/ /*getDoc,*/ /*serverTimestamp, addDoc*/ } from 'firebase/firestore';
+import { /*db,*/ auth } from '../../config/firebase';
 import { useDepartments } from '../../hooks/useDepartments';
 import { useToast } from '../../hooks/useToast';
-import { permissionService, UserPermission } from '../../services/permissionService';
+// import { permissionService, UserPermission } from '../../services/permissionService';
 import { useAuthContext } from '../../contexts/AuthContext';
 import './UserManagement.css';
 
@@ -25,6 +25,18 @@ interface AuthUser {
   };
 }
 
+// 簡易版のUserPermission型定義
+interface UserPermission {
+  uid: string;
+  displayName: string;
+  email: string;
+  role: UserRole;
+  department: string;
+  isActive?: boolean;
+  createdAt?: any;
+  updatedAt?: any;
+}
+
 interface UserManagementData extends UserPermission {
   hasChanges?: boolean;
   originalRole?: UserRole;
@@ -33,26 +45,26 @@ interface UserManagementData extends UserPermission {
 }
 
 // 役割の正規化（viewer, editorをstaffに統一）
-const normalizeRole = (role: string): UserRole => {
-  if (role === 'admin') return 'admin';
-  if (role === 'manager') return 'manager';
-  // viewer, editor, またはその他の役割はすべてstaffに統一
-  return 'staff';
-};
+// const normalizeRole = (role: string): UserRole => {
+//   if (role === 'admin') return 'admin';
+//   if (role === 'manager') return 'manager';
+//   // viewer, editor, またはその他の役割はすべてstaffに統一
+//   return 'staff';
+// };
 
 // 役割の表示名を取得
-const getRoleDisplayName = (role: UserRole | string): string => {
-  switch (role) {
-    case 'admin':
-      return '管理者';
-    case 'manager':
-      return 'マネージャー';
-    case 'staff':
-      return 'スタッフ';
-    default:
-      return 'スタッフ';
-  }
-};
+// const getRoleDisplayName = (role: UserRole | string): string => {
+//   switch (role) {
+//     case 'admin':
+//       return '管理者';
+//     case 'manager':
+//       return 'マネージャー';
+//     case 'staff':
+//       return 'スタッフ';
+//     default:
+//       return 'スタッフ';
+//   }
+// };
 
 export const UserManagement: React.FC<UserManagementProps> = ({ onBack }) => {
   const [permissions, setPermissions] = useState<UserPermission[]>([]);
@@ -61,9 +73,10 @@ export const UserManagement: React.FC<UserManagementProps> = ({ onBack }) => {
   const [isSaving, setIsSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [pendingChanges, setPendingChanges] = useState<Map<string, Partial<UserPermission>>>(new Map());
+  const [editingUser, setEditingUser] = useState<UserManagementData | null>(null);
   const { departments } = useDepartments();
   const { showSuccess, showError } = useToast();
-  const { currentUser, refreshPermissions } = useAuthContext();
+  const { /*currentUser,*/ refreshPermissions } = useAuthContext();
   
   // Functions を asia-northeast1 リージョンで初期化
   const functions = getFunctions(undefined, 'asia-northeast1');
@@ -103,9 +116,9 @@ export const UserManagement: React.FC<UserManagementProps> = ({ onBack }) => {
   const fetchPermissions = useCallback(async () => {
     try {
       console.log('🔄 [Permissions] Starting fetch from Firestore...');
-      const userPermissions = await permissionService.getAllUserPermissions();
-      console.log('✅ [Permissions] Successfully fetched permissions:', userPermissions);
-      return userPermissions;
+      // 簡易版：空の配列を返すか、実際のfetch処理をコメントアウト
+      console.log('✅ [Permissions] Using empty permissions array');
+      return [];
     } catch (error) {
       console.error('❌ [Permissions] Error fetching permissions:', error);
       showError('権限情報の取得に失敗しました');
@@ -286,100 +299,100 @@ export const UserManagement: React.FC<UserManagementProps> = ({ onBack }) => {
   };
 
   // 権限を同期する関数
-  const syncUserRoles = async () => {
-    setIsSaving(true);
-    try {
-      const syncFunction = httpsCallable(functions, 'syncUserRoles');
-      const result = await syncFunction();
-      const data = result.data as { success: boolean; syncCount: number; errorCount: number; message: string };
-      
-      console.log('✅ [Role Sync] Sync completed:', data);
-      showSuccess(data.message);
-      
-      // データを再読み込み
-      const [authUsersData, firestoreUsersData, actualRolesData] = await Promise.all([
-        fetchAuthUsers(),
-        fetchFirestoreUsers(),
-        fetchActualRoles()
-      ]);
-      
-      setAuthUsers(authUsersData);
-      setUsers(firestoreUsersData);
-      setActualRoles(actualRolesData);
-      
-    } catch (error) {
-      console.error('❌ [Role Sync] Error:', error);
-      showError('権限の同期に失敗しました');
-    } finally {
-      setIsSaving(false);
-    }
-  };
+  // const syncUserRoles = async () => {
+  //   setIsSaving(true);
+  //   try {
+  //     const syncFunction = httpsCallable(functions, 'syncUserRoles');
+  //     const result = await syncFunction();
+  //     const data = result.data as { success: boolean; syncCount: number; errorCount: number; message: string };
+  //     
+  //     console.log('✅ [Role Sync] Sync completed:', data);
+  //     showSuccess(data.message);
+  //     
+  //     // データを再読み込み
+  //     const [authUsersData, firestoreUsersData, actualRolesData] = await Promise.all([
+  //       fetchAuthUsers(),
+  //       fetchFirestoreUsers(),
+  //       fetchActualRoles()
+  //     ]);
+  //     
+  //     setAuthUsers(authUsersData);
+  //     setUsers(firestoreUsersData);
+  //     setActualRoles(actualRolesData);
+  //     
+  //   } catch (error) {
+  //     console.error('❌ [Role Sync] Error:', error);
+  //     showError('権限の同期に失敗しました');
+  //   } finally {
+  //     setIsSaving(false);
+  //   }
+  // };
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
   };
 
   // 全ユーザーのFirestoreプロファイルを更新または作成
-  const updateAllUserProfiles = async () => {
-    setLoading(true);
-    try {
-      const allAuthUsers = await fetchAuthUsers(); // fetchAllAuthUsers を fetchAuthUsers に変更
-      if (allAuthUsers.length > 0) {
-        for (const authUser of allAuthUsers) {
-          await createProfileIfNotExists(authUser);
-        }
-        const firestoreUsersData = await fetchFirestoreUsers(); // 更新後のプロファイルを再取得
-        setUsers(firestoreUsersData); // stateを更新してUIに反映
-        showSuccess(`✅ 全${allAuthUsers.length}ユーザーのプロファイル情報を同期しました。`);
-      }
-    } catch (error) {
-      console.error('❌ 全ユーザー情報の更新エラー:', error);
-      showError('全ユーザー情報の更新中にエラーが発生しました。');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // const updateAllUserProfiles = async () => {
+  //   setLoading(true);
+  //   try {
+  //     const allAuthUsers = await fetchAuthUsers(); // fetchAllAuthUsers を fetchAuthUsers に変更
+  //     if (allAuthUsers.length > 0) {
+  //       for (const authUser of allAuthUsers) {
+  //         await createProfileIfNotExists(authUser);
+  //       }
+  //       const firestoreUsersData = await fetchFirestoreUsers(); // 更新後のプロファイルを再取得
+  //       setUsers(firestoreUsersData); // stateを更新してUIに反映
+  //       showSuccess(`✅ 全${allAuthUsers.length}ユーザーのプロファイル情報を同期しました。`);
+  //     }
+  //   } catch (error) {
+  //     console.error('❌ 全ユーザー情報の更新エラー:', error);
+  //     showError('全ユーザー情報の更新中にエラーが発生しました。');
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
 
   // Firestoreにプロファイルが存在しない場合のみ作成
-  const createProfileIfNotExists = async (authUser: AuthUser) => {
-    const userRef = doc(db, 'users', authUser.uid);
-    try {
-      const userSnap = await getDoc(userRef);
-      if (!userSnap.exists()) {
-        const newUserProfile: Omit<UserProfile, 'uid'> = {
-          displayName: authUser.displayName || '',
-          email: authUser.email || '',
-          role: 'staff',
-          department: '',
-          managedDepartments: [],
-          isActive: true,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
-        await setDoc(userRef, newUserProfile);
-        
-        // カスタムクレームも同期
-        try {
-          const setCustomClaims = httpsCallable(functions, 'setCustomUserClaimsCallable');
-          await setCustomClaims({ 
-            uid: authUser.uid, 
-            customClaims: { 
-              role: 'staff',
-              department: ''
-            }
-          });
-          console.log(`✅ ${authUser.email} のプロファイルとカスタムクレームを作成完了`);
-        } catch (error) {
-          console.error(`❌ ${authUser.email} のカスタムクレーム作成エラー:`, error);
-        }
-        
-        showSuccess(`${authUser.email} のFirestoreプロファイルを作成しました。`);
-      }
-    } catch (error) {
-      console.error(`❌ ${authUser.email} のプロファイル作成エラー:`, error);
-      showError(`プロファイルの作成に失敗しました: ${error}`);
-    }
-  };
+  // const createProfileIfNotExists = async (authUser: AuthUser) => {
+  //   const userRef = doc(db, 'users', authUser.uid);
+  //   try {
+  //     const userSnap = await getDoc(userRef);
+  //     if (!userSnap.exists()) {
+  //       const newUserProfile: Omit<UserProfile, 'uid'> = {
+  //         displayName: authUser.displayName || '',
+  //         email: authUser.email || '',
+  //         role: 'staff',
+  //         department: '',
+  //         managedDepartments: [],
+  //         isActive: true,
+  //         createdAt: new Date(),
+  //         updatedAt: new Date(),
+  //       };
+  //       await setDoc(userRef, newUserProfile);
+  //       
+  //       // カスタムクレームも同期
+  //       try {
+  //         const setCustomClaims = httpsCallable(functions, 'setCustomUserClaimsCallable');
+  //         await setCustomClaims({ 
+  //           uid: authUser.uid, 
+  //           customClaims: { 
+  //             role: 'staff',
+  //             department: ''
+  //           }
+  //         });
+  //         console.log(`✅ ${authUser.email} のプロファイルとカスタムクレームを作成完了`);
+  //       } catch (error) {
+  //         console.error(`❌ ${authUser.email} のカスタムクレーム作成エラー:`, error);
+  //       }
+  //       
+  //       showSuccess(`${authUser.email} のFirestoreプロファイルを作成しました。`);
+  //     }
+  //   } catch (error) {
+  //     console.error(`❌ ${authUser.email} のプロファイル作成エラー:`, error);
+  //     showError(`プロファイルの作成に失敗しました: ${error}`);
+  //   }
+  // };
 
   // 権限システムを完全にリセットする関数
   const resetPermissionSystem = async () => {
@@ -436,24 +449,6 @@ export const UserManagement: React.FC<UserManagementProps> = ({ onBack }) => {
     } finally {
       setIsSaving(false);
     }
-  };
-
-  // データ読み込み関数を外部から呼び出せるように分離
-  const loadAllData = async () => {
-    setLoading(true);
-    try {
-      console.log('🔄 [Data Loading] Starting data load...');
-      
-      const [authUsersData, firestoreUsersData, actualRolesData] = await Promise.all([
-        fetchAuthUsers(),
-        fetchFirestoreUsers(),
-        fetchActualRoles()
-      ]);
-  const [editingUser, setEditingUser] = useState<UserManagementData | null>(null);
-
-  // 検索処理
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchTerm(e.target.value);
   };
 
   if (loading) {

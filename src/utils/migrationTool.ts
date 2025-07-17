@@ -3,7 +3,7 @@
 
 import { initializeApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
-import { getFirestore, collection, getDocs, doc, setDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { getFirestore, collection, getDocs/*, doc, setDoc, serverTimestamp, writeBatch*/ } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 
 // Firebase 設定
