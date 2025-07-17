@@ -25,8 +25,9 @@ https://dashboard.render.com/
 Name: oncall-scheduler-frontend
 Branch: clean-main
 Root Directory: (空白)
-Build Command: cd web && npm install && npm run build
-Publish Directory: web/out
+4. **Build Settings**:
+   - Build Command: `npm install && npm run build`
+   - Publish Directory: `build`
 ```
 
 ### 5. 環境変数（オプション）
