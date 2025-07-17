@@ -1,0 +1,128 @@
+import { useState } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "src/components/ui/card"
+import { Button } from "src/components/ui/button"
+import { Badge } from "src/components/ui/badge"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "src/components/ui/select"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "src/components/ui/table"
+
+// リクエスト型定義 (app/page.tsxからコピー)
+interface Request {
+  id: number
+  type: "vacation" | "substitute" // 休暇申請 or 代替シフト
+  staffName: string
+  department: string // リクエストに部署情報を追加
+  date: string
+  status: "pending" | "approved" | "rejected"
+  reason: string
+}
+
+// 部署型定義 (app/page.tsxからコピー)
+interface Department {
+  id: number
+  name: string
+  workSystem: string
+  memberCount: number
+}
+
+interface AdminRequestManagementProps {
+  requests: Request[]
+  departments: Department[]
+}
+
+export function AdminRequestManagement({ requests, departments }: AdminRequestManagementProps) {
+  const [selectedDepartment, setSelectedDepartment] = useState<string | null>("all")
+
+  const filteredRequests =
+    selectedDepartment === "all" ? requests : requests.filter((req) => req.department === selectedDepartment)
+
+  const getStatusBadgeVariant = (status: Request["status"]) => {
+    switch (status) {
+      case "pending":
+        return "secondary"
+      case "approved":
+        return "default" // Or a custom green variant
+      case "rejected":
+        return "destructive" // Or a custom red variant
+      default:
+        return "secondary"
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>リクエスト管理</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <Select onValueChange={setSelectedDepartment} defaultValue="all">
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="部署を選択" />
+              </SelectTrigger>
+              <SelectContent>
+                {departments.map((dept) => (
+                  <SelectItem key={dept.id} value={dept.name}>
+                    {dept.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {/* 新規リクエスト作成ボタンは管理者画面では不要な場合が多いので、今回は追加しません */}
+          </div>
+
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>日付</TableHead>
+                <TableHead>スタッフ</TableHead>
+                <TableHead>部署</TableHead>
+                <TableHead>タイプ</TableHead>
+                <TableHead>理由</TableHead>
+                <TableHead>ステータス</TableHead>
+                <TableHead>操作</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredRequests.map((request) => (
+                <TableRow key={request.id}>
+                  <TableCell>{request.date}</TableCell>
+                  <TableCell>{request.staffName}</TableCell>
+                  <TableCell>{request.department}</TableCell>
+                  <TableCell>{request.type === "vacation" ? "休暇申請" : "代替シフト"}</TableCell>
+                  <TableCell>{request.reason}</TableCell>
+                  <TableCell>
+                    <Badge variant={getStatusBadgeVariant(request.status)}>
+                      {request.status === "pending"
+                        ? "承認待ち"
+                        : request.status === "approved"
+                          ? "承認済み"
+                          : "却下済み"}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="flex gap-2">
+                    {request.status === "pending" && (
+                      <>
+                        <Button size="sm" className="bg-green-600 hover:bg-green-700">
+                          承認
+                        </Button>
+                        <Button size="sm" variant="outline" className="text-red-600 bg-transparent">
+                          却下
+                        </Button>
+                      </>
+                    )}
+                    {request.status !== "pending" && (
+                      <Button size="sm" variant="outline" disabled>
+                        処理済み
+                      </Button>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}

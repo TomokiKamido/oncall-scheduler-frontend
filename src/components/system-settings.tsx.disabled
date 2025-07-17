@@ -1,0 +1,48 @@
+"use client"
+import { useState } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "src/components/ui/card"
+import { Button } from "src/components/ui/button"
+import { Label } from "src/components/ui/label"
+import { Switch } from "src/components/ui/switch"
+
+type SystemSettingsProps = {}
+
+export function SystemSettings({}: SystemSettingsProps) {
+  const [enableEmailNotifications, setEnableEmailNotifications] = useState(true)
+
+  const handleSaveSettings = () => {
+    // TODO: 設定を保存するロジックを実装
+    console.log("Settings saved:", {
+      enableEmailNotifications,
+    })
+    alert("設定が保存されました！")
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>システム設定</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-6">
+          {/* 通知設定 */}
+          <h3 className="text-lg font-semibold">通知設定</h3>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="emailNotifications">メール通知を有効にする</Label>
+            <Switch
+              id="emailNotifications"
+              checked={enableEmailNotifications}
+              onCheckedChange={setEnableEmailNotifications}
+            />
+          </div>
+
+          <div className="flex justify-end pt-4 border-t">
+            <Button onClick={handleSaveSettings} className="bg-gradient-to-r from-blue-500 to-cyan-500">
+              設定を保存
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}

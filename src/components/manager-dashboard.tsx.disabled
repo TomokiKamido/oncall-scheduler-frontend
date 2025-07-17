@@ -1,0 +1,219 @@
+import { Card, CardContent, CardHeader, CardTitle } from "src/components/ui/card"
+import { Button } from "src/components/ui/button"
+import { Badge } from "src/components/ui/badge"
+import { Separator } from "src/components/ui/separator"
+
+// シフト型定義 (app/page.tsxからコピー)
+interface Shift {
+  id: number
+  date: string // YYYY-MM-DD
+  startTime: string // HH:MM
+  endTime: string // HH:MM
+  staffId: number
+  staffName: string
+  department: string
+  shiftType: "日勤" | "夜勤" | "日直" | "当直"
+}
+
+// リクエスト型定義 (app/page.tsxからコピー)
+interface Request {
+  id: number
+  type: "vacation" | "substitute" // 休暇申請 or 代替シフト
+  staffName: string
+  department: string // リクエストに部署情報を追加
+  date: string
+  status: "pending" | "approved" | "rejected"
+  reason: string
+}
+
+// サンプルデータ (app/page.tsxからコピー)
+const requests: Request[] = [
+  {
+    id: 1,
+    type: "vacation",
+    staffName: "田中 太郎",
+    department: "内科", // 部署情報を追加
+    date: "2024-01-20",
+    status: "pending",
+    reason: "家族旅行",
+  },
+  {
+    id: 2,
+    type: "substitute",
+    staffName: "鈴木 次郎",
+    department: "小児科", // 部署情報を追加
+    date: "2024-01-22",
+    status: "approved",
+    reason: "体調不良",
+  },
+  {
+    id: 3,
+    type: "vacation",
+    staffName: "高橋 美咲",
+    department: "産婦人科", // 部署情報を追加
+    date: "2024-02-10",
+    status: "pending",
+    reason: "私用",
+  },
+  {
+    id: 4,
+    type: "substitute",
+    staffName: "佐藤 花子",
+    department: "外科", // 部署情報を追加
+    date: "2024-02-15",
+    status: "pending",
+    reason: "急な出張",
+  },
+  // 2023年の休暇申請サンプル
+  {
+    id: 5,
+    type: "vacation",
+    staffName: "田中 太郎",
+    department: "内科",
+    date: "2023-08-01",
+    status: "approved",
+    reason: "夏季休暇",
+  },
+  {
+    id: 6,
+    type: "vacation",
+    staffName: "田中 太郎",
+    department: "内科",
+    date: "2023-08-02",
+    status: "approved",
+    reason: "夏季休暇",
+  },
+  {
+    id: 7,
+    type: "vacation",
+    staffName: "佐藤 花子",
+    department: "外科",
+    date: "2023-09-10",
+    status: "approved",
+    reason: "私用",
+  },
+  // 2025年の休暇申請サンプル
+  {
+    id: 8,
+    type: "vacation",
+    staffName: "鈴木 次郎",
+    department: "小児科",
+    date: "2025-01-05",
+    status: "pending",
+    reason: "旅行",
+  },
+]
+
+type ManagerDashboardProps = {
+  currentUserDepartment: string
+  sampleShifts: Shift[]
+}
+
+export function ManagerDashboard({ currentUserDepartment, sampleShifts }: ManagerDashboardProps) {
+  // 今週の日付を取得するヘルパー関数
+  const getWeekDates = () => {
+    const today = new Date()
+    const dayOfWeek = today.getDay() // 0 for Sunday, 1 for Monday, etc.
+    const startOfWeek = new Date(today)
+    // 月曜日を週の開始とする (日曜日が0の場合、-6で前週の月曜日に、それ以外は1で今週の月曜日に)
+    startOfWeek.setDate(today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1))
+
+    const dates = []
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(startOfWeek)
+      date.setDate(startOfWeek.getDate() + i)
+      dates.push(date)
+    }
+    return dates
+  }
+
+  const weekDates = getWeekDates()
+
+  // マネージャーの部署に属するシフトのみをフィルタリング
+  const shiftsForDepartment = sampleShifts.filter((shift) => shift.department === currentUserDepartment)
+
+  // シフトを日付ごとにグループ化
+  const shiftsByDate: { [key: string]: Shift[] } = {}
+  shiftsForDepartment.forEach((shift) => {
+    if (!shiftsByDate[shift.date]) {
+      shiftsByDate[shift.date] = []
+    }
+    shiftsByDate[shift.date].push(shift)
+  })
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>承認待ちリクエスト</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {requests
+              .filter((req) => req.status === "pending")
+              .map((request) => (
+                <div key={request.id} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div>
+                    <div className="font-medium">{request.staffName}</div>
+                    <div className="text-sm text-gray-500">
+                      {request.type === "vacation" ? "休暇申請" : "代替シフト"} - {request.date}
+                    </div>
+                    <div className="text-xs text-gray-400">{request.reason}</div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" className="bg-green-600 hover:bg-green-700">
+                      承認
+                    </Button>
+                    <Button size="sm" variant="outline" className="text-red-600 bg-transparent">
+                      却下
+                    </Button>
+                  </div>
+                </div>
+              ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>週間シフトカレンダー ({currentUserDepartment})</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
+            {weekDates.map((date, index) => {
+              const dateString = date.toISOString().split("T")[0] // YYYY-MM-DD
+              const dayName = new Intl.DateTimeFormat("ja-JP", { weekday: "short" }).format(date)
+              const displayDate = new Intl.DateTimeFormat("ja-JP", { month: "numeric", day: "numeric" }).format(date)
+              const dailyShifts = shiftsByDate[dateString] || []
+
+              return (
+                <div key={index} className="border rounded-lg p-3 space-y-2 min-h-[120px] flex flex-col">
+                  <div className="text-center font-medium text-sm">
+                    {displayDate} ({dayName})
+                  </div>
+                  <Separator />
+                  <div className="flex-1 overflow-y-auto">
+                    {dailyShifts.length > 0 ? (
+                      <ul className="space-y-1 text-sm">
+                        {dailyShifts.map((shift, shiftIndex) => (
+                          <li key={shiftIndex} className="flex items-center justify-between">
+                            <span>{shift.staffName}</span>
+                            <Badge variant="secondary">{shift.shiftType}</Badge>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-xs text-gray-500 text-center py-2">シフトなし</p>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+export default ManagerDashboard

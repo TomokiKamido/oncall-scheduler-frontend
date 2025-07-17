@@ -1,0 +1,209 @@
+import { useState } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "src/components/ui/card"
+import { Button } from "src/components/ui/button"
+import { Tabs, TabsList, TabsTrigger } from "src/components/ui/tabs"
+import { ToggleGroup, ToggleGroupItem } from "src/components/ui/toggle-group"
+import { Users, User, RotateCcw, Check, Settings } from "lucide-react"
+import { cn } from "src/lib/utils"
+
+interface StaffMember {
+  id: number
+  name: string
+  department: string
+  role: "admin" | "manager" | "staff"
+  avatar: string
+  workload: number
+  status: string
+  employeeId: string
+  email?: string
+  // birthDate?: string
+  // nameKana?: string
+}
+
+// Re-use types from app/page.tsx or define them here if they are specific
+// type UserRole = "admin" | "manager" | "staff"
+
+interface WorkPattern {
+  id: string
+  name: string
+  startTime: string
+  endTime: string
+  minStaff: number
+  maxStaff: number
+}
+
+interface GeneratedScheduleViewProps {
+  scheduleConfig: {
+    periodType: "dateRange" | "month"
+    startDate?: string
+    endDate?: string
+    selectedYear?: string
+    selectedMonth?: string
+    department: string
+    selectedStaffIds: number[]
+    workPatterns: WorkPattern[]
+    dailyWorkPatterns: { [date: string]: string[] }
+    holidays: string[]
+    memberMinMaxDays: { [staffId: number]: { min: number; max: number } }
+    customRules: any
+  }
+  staff: StaffMember[]
+  onRegenerate: () => void
+  onBackToSettings: () => void
+  onConfirmSchedule: () => void
+}
+
+export function GeneratedScheduleView({
+  scheduleConfig,
+  staff,
+  onRegenerate,
+  onBackToSettings,
+  onConfirmSchedule,
+}: GeneratedScheduleViewProps) {
+  const [viewType, setViewType] = useState<"month" | "week" | "day">("month")
+  const [displayScope, setDisplayScope] = useState<"department" | "self">("department")
+
+  // Dummy generated schedule data for display
+  const dummyGeneratedSchedule = [
+    { date: "2024-07-20", staffId: 1, shiftType: "日勤", startTime: "09:00", endTime: "18:00" },
+    { date: "2024-07-20", staffId: 2, shiftType: "夜勤", startTime: "17:00", endTime: "09:00" },
+    { date: "2024-07-21", staffId: 1, shiftType: "休み", startTime: "", endTime: "" },
+    { date: "2024-07-21", staffId: 3, shiftType: "日勤", startTime: "09:00", endTime: "18:00" },
+    { date: "2024-07-22", staffId: 1, shiftType: "日勤", startTime: "09:00", endTime: "18:00" },
+    { date: "2024-07-22", staffId: 2, shiftType: "日勤", startTime: "09:00", endTime: "18:00" },
+    { date: "2024-07-23", staffId: 1, shiftType: "夜勤", startTime: "17:00", endTime: "09:00" },
+    { date: "2024-07-24", staffId: 1, shiftType: "休み", startTime: "", endTime: "" },
+    { date: "2024-07-25", staffId: 1, shiftType: "日勤", startTime: "09:00", endTime: "18:00" },
+    { date: "2024-07-26", staffId: 1, shiftType: "日勤", startTime: "09:00", endTime: "18:00" },
+    { date: "2024-07-27", staffId: 1, shiftType: "休み", startTime: "", endTime: "" },
+    { date: "2024-07-28", staffId: 1, shiftType: "休み", startTime: "", endTime: "" },
+  ]
+
+  const getStaffName = (staffId: number) => staff.find((s) => s.id === staffId)?.name || `スタッフ ${staffId}`
+
+  // Calendar rendering logic (simplified for demo)
+  const renderCalendar = () => {
+    // const days = []
+    let startDate: Date, endDate: Date
+
+    if (scheduleConfig.periodType === "month") {
+      const year = Number.parseInt(scheduleConfig.selectedYear || new Date().getFullYear().toString())
+      const month = Number.parseInt(scheduleConfig.selectedMonth || (new Date().getMonth() + 1).toString())
+      startDate = new Date(year, month - 1, 1)
+      endDate = new Date(year, month, 0) // Last day of the month
+    } else {
+      startDate = new Date(scheduleConfig.startDate || new Date().toISOString().split("T")[0])
+      endDate = new Date(scheduleConfig.endDate || new Date().toISOString().split("T")[0])
+    }
+
+    const calendarDays = []
+    const firstDayOfMonth = startDate.getDay() // 0 for Sunday, 1 for Monday
+    const startDayOffset = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1 // 月曜日を週の開始とする
+
+    for (let i = 0; i < startDayOffset; i++) {
+      calendarDays.push(null) // 空白セル
+    }
+
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+      calendarDays.push(new Date(d))
+    }
+
+    return (
+      <div className="grid grid-cols-7 gap-2 text-center text-base">
+        {["月", "火", "水", "木", "金", "土", "日"].map((day) => (
+          <div key={day} className="font-medium text-gray-500 dark:text-gray-400 py-2">
+            {day}
+          </div>
+        ))}
+        {calendarDays.map((day, index) => {
+          const dateString = day ? day.toISOString().split("T")[0] : ""
+          const isHoliday = day && scheduleConfig.holidays.includes(dateString)
+          const shiftsForDay = dummyGeneratedSchedule.filter((s) => s.date === dateString)
+
+          return (
+            <div
+              key={index}
+              className={cn(
+                "p-3 rounded-md aspect-square flex flex-col items-center justify-start border",
+                day ? "text-gray-700 dark:text-gray-300" : "opacity-0 pointer-events-none",
+                isHoliday && "bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-200",
+                "overflow-hidden", // Ensure content doesn't overflow
+              )}
+            >
+              <div className="font-semibold text-sm mb-1">{day ? day.getDate() : ""}</div>
+              <div className="flex-1 text-xs space-y-0.5 w-full overflow-y-auto">
+                {shiftsForDay.length > 0
+                  ? shiftsForDay.map((shift, shiftIdx) => (
+                      <div
+                        key={shiftIdx}
+                        className="bg-blue-50 dark:bg-blue-900/20 rounded px-1 py-0.5 text-blue-800 dark:text-blue-200 truncate"
+                      >
+                        {getStaffName(shift.staffId)}: {shift.shiftType}
+                      </div>
+                    ))
+                  : day && <p className="text-gray-400">シフトなし</p>}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>生成スケジュール確認</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="flex justify-between items-center">
+          <Tabs value={viewType} onValueChange={(value) => setViewType(value as "month" | "week" | "day")}>
+            <TabsList>
+              <TabsTrigger value="month">月</TabsTrigger>
+              <TabsTrigger value="week">週</TabsTrigger>
+              <TabsTrigger value="day">日</TabsTrigger>
+            </TabsList>
+          </Tabs>
+          <ToggleGroup
+            type="single"
+            value={displayScope}
+            onValueChange={(value) => setDisplayScope(value as "department" | "self")}
+          >
+            <ToggleGroupItem value="department" aria-label="部署全体">
+              <Users className="h-4 w-4 mr-2" />
+              部署全体
+            </ToggleGroupItem>
+            <ToggleGroupItem value="self" aria-label="自分">
+              <User className="h-4 w-4 mr-2" />
+              自分
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </div>
+
+        {/* Schedule Display Area */}
+        <div className="border rounded-lg p-4 min-h-[400px] flex items-center justify-center">
+          {/* Placeholder for actual calendar rendering based on viewType and displayScope */}
+          {viewType === "month" && renderCalendar()}
+          {viewType === "week" && <p className="text-muted-foreground">週ビュー (未実装)</p>}
+          {viewType === "day" && <p className="text-muted-foreground">日ビュー (未実装)</p>}
+          {/* TODO: Implement drag & drop functionality for micro-adjustments */}
+        </div>
+
+        <div className="flex justify-end gap-3 pt-4 border-t">
+          <Button variant="outline" onClick={onBackToSettings}>
+            <Settings className="h-4 w-4 mr-2" />
+            設定に戻る
+          </Button>
+          <Button variant="outline" onClick={onRegenerate}>
+            <RotateCcw className="h-4 w-4 mr-2" />
+            再生成
+          </Button>
+          <Button onClick={onConfirmSchedule} className="bg-gradient-to-r from-blue-500 to-cyan-500">
+            <Check className="h-4 w-4 mr-2" />
+            確定
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}

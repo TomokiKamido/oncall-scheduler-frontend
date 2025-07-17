@@ -1,13 +1,12 @@
-import React from 'react';
+import { ReactNode } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import ProgressBar from '../common/ProgressBar';
 // import { addDebugLog } from '../common/DebugOverlay';
 import Login from './Login';
 
 interface ProtectedRouteProps {
-  children: React.ReactNode;
+  children: ReactNode;
 }
-
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const { user, loading } = useAuth();
 

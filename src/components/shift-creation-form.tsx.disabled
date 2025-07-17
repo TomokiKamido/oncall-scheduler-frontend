@@ -1,0 +1,1704 @@
+import type React from "react"
+import { useState, useMemo, useCallback } from "react"
+import { Button } from "src/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "src/components/ui/card"
+import { Input } from "src/components/ui/input"
+import { Label } from "src/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "src/components/ui/select"
+import { Checkbox } from "src/components/ui/checkbox"
+import { ArrowLeft, ArrowRight, Plus, Save, Trash2, Edit } from "lucide-react"
+import { RadioGroup, RadioGroupItem } from "src/components/ui/radio-group"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "src/components/ui/dialog"
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "src/components/ui/accordion"
+import { Popover, PopoverContent, PopoverTrigger } from "src/components/ui/popover"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "src/components/ui/table"
+import { cn } from "src/lib/utils"
+
+// Re-use types from app/page.tsx or define them here if they are specific
+type UserRole = "admin" | "manager" | "staff"
+interface Department {
+  id: number
+  name: string
+  workSystem: string
+  memberCount: number
+}
+interface StaffMember {
+  id: number
+  name: string
+  department: string
+  role: UserRole
+  avatar: string
+  workload: number
+  status: string
+  employeeId: string
+  email?: string
+  birthDate?: string
+  nameKana?: string
+}
+// interface Shift {
+//   id: number
+//   date: string // YYYY-MM-DD
+//   startTime: string // HH:MM
+//   endTime: string // HH:MM
+//   staffId: number
+//   staffName: string
+//   department: string
+//   shiftType: string // 勤務形態名
+// }
+
+// 新しい勤務形態の型定義 (ShiftSchedulerConfiguratorからコピー)
+interface WorkPattern {
+  id: string
+  name: string
+  startTime: string
+  endTime: string
+  minStaff: number
+  maxStaff: number
+}
+
+// 動的ルールテンプレートの型定義
+interface RulePlaceholder {
+  key: string
+  type: "member" | "workPattern" | "role" | "number" | "text"
+  label: string
+}
+
+interface RuleTemplate {
+  id: string
+  label: string
+  placeholders: RulePlaceholder[]
+}
+
+interface AppliedRule {
+  id: string // template ID
+  values: Record<string, any> // placeholder values
+}
+
+// 新しいカスタムルールの型定義
+interface CustomRules {
+  appliedRules: AppliedRule[] // 動的に適用されるルール
+  maxConsecutiveWorkDays: number // 連続勤務日数上限
+  maxWeekendWorkDays: number // 週末勤務回数上限
+}
+
+// Saved settings type, mirroring formData
+type SavedShiftConfig = {
+  periodType: "dateRange" | "month"
+  startDate?: string
+  endDate?: string
+  selectedYear?: string
+  selectedMonth?: string
+  department: string
+  selectedStaffIds: number[]
+  workPatterns: WorkPattern[]
+  dailyWorkPatterns: { [date: string]: string[] }
+  holidays: string[]
+  memberMinMaxDays: { [staffId: number]: { [workPatternId: string]: { min: number; max: number } } }
+  customRules: CustomRules
+}
+
+interface ShiftCreationFormProps {
+  departments: Department[]
+  staff: StaffMember[]
+  onCancel: () => void
+  onSuccess: (newShiftConfig: {
+    periodType: "dateRange" | "month"
+    startDate?: string
+    endDate?: string
+    selectedYear?: string
+    selectedMonth?: string
+    department: string
+    selectedStaffIds: number[]
+    workPatterns: WorkPattern[]
+    dailyWorkPatterns: { [date: string]: string[] }
+    holidays: string[]
+    memberMinMaxDays: { [staffId: number]: { [workPatternId: string]: { min: number; max: number } } } // 更新された型
+    customRules: CustomRules // 更新された型
+  }) => void
+}
+
+const years = Array.from({ length: 10 }, (_, i) => (new Date().getFullYear() - 5 + i).toString())
+const months = Array.from({ length: 12 }, (_, i) => (i + 1).toString().padStart(2, "0"))
+
+export function ShiftCreationForm({ departments, staff, onCancel, onSuccess }: ShiftCreationFormProps) {
+  const currentYear = new Date().getFullYear()
+  const currentMonth = (new Date().getMonth() + 1).toString().padStart(2, "0")
+
+  // ステップ3の勤務形態設定の初期値
+  const initialWorkPatterns: WorkPattern[] = useMemo(
+    () => [
+      { id: "day-shift", name: "日勤 (日直)", startTime: "09:00", endTime: "18:00", minStaff: 3, maxStaff: 10 },
+      { id: "night-shift", name: "深夜 (当直)", startTime: "17:00", endTime: "09:00", minStaff: 2, maxStaff: 5 },
+      { id: "semi-night-shift", name: "準夜勤", startTime: "22:00", endTime: "07:00", minStaff: 1, maxStaff: 3 }, // 準夜勤を追加
+    ],
+    [],
+  )
+
+  const [currentStep, setCurrentStep] = useState(1)
+  const [formData, setFormData] = useState({
+    periodType: "dateRange" as "dateRange" | "month",
+    startDate: "",
+    endDate: "",
+    selectedYear: currentYear.toString(),
+    selectedMonth: currentMonth,
+    department: "",
+    selectedStaffIds: [] as number[],
+    workPatterns: initialWorkPatterns, // ステップ3のデータ
+    dailyWorkPatterns: {} as { [date: string]: string[] }, // ステップ4のデータ
+    holidays: ["2024-07-15", "2024-09-23"] as string[], // ステップ4のデータ (サンプル)
+    memberMinMaxDays: {} as { [staffId: number]: { [workPatternId: string]: { min: number; max: number } } }, // ステップ5のデータ
+    customRules: {
+      appliedRules: [], // 動的ルールを格納する配列
+      maxConsecutiveWorkDays: 7,
+      maxWeekendWorkDays: 2,
+    } as CustomRules, // ステップ6のデータ
+  })
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({})
+
+  // Step 1: Period & Department
+  const validateStep1 = () => {
+    const errors: Record<string, string> = {}
+    if (!formData.department) errors.department = "部署は必須です。"
+
+    if (formData.periodType === "dateRange") {
+      if (!formData.startDate) errors.startDate = "開始日は必須です。"
+      if (!formData.endDate) errors.endDate = "終了日は必須です。"
+      if (formData.startDate && formData.endDate && new Date(formData.startDate) > new Date(formData.endDate)) {
+        errors.endDate = "終了日は開始日より後である必要があります。"
+      }
+    } else if (formData.periodType === "month") {
+      if (!formData.selectedYear) errors.selectedYear = "年は必須です。"
+      if (!formData.selectedMonth) errors.selectedMonth = "月は必須です。"
+    }
+    setFormErrors(errors)
+    return Object.keys(errors).length === 0
+  }
+
+  // Step 2: Staff Selection (No specific validation needed here)
+  const validateStep2 = () => {
+    return true
+  }
+
+  // Step 3: Work Pattern Settings
+  const [isAddCustomWorkPatternOpen, setIsAddCustomWorkPatternOpen] = useState(false)
+  const [newWorkPatternName, setNewWorkPatternName] = useState("")
+  const [newWorkPatternStartTime, setNewWorkPatternStartTime] = useState("")
+  const [newWorkPatternEndTime, setNewWorkPatternEndTime] = useState("")
+  const [newWorkPatternMinStaff, setNewWorkPatternMinStaff] = useState(1)
+  const [newWorkPatternMaxStaff, setNewWorkPatternMaxStaff] = useState(20)
+
+  const handleAddCustomWorkPattern = () => {
+    if (newWorkPatternName && newWorkPatternStartTime && newWorkPatternEndTime) {
+      setFormData((prev) => ({
+        ...prev,
+        workPatterns: [
+          ...prev.workPatterns,
+          {
+            id: `custom-${Date.now()}`,
+            name: newWorkPatternName,
+            startTime: newWorkPatternStartTime,
+            endTime: newWorkPatternEndTime,
+            minStaff: newWorkPatternMinStaff,
+            maxStaff: newWorkPatternMaxStaff,
+          },
+        ],
+      }))
+      setNewWorkPatternName("")
+      setNewWorkPatternStartTime("")
+      setNewWorkPatternEndTime("")
+      setNewWorkPatternMinStaff(1)
+      setNewWorkPatternMaxStaff(20)
+      setIsAddCustomWorkPatternOpen(false)
+    }
+  }
+
+  const handleUpdateWorkPatternStaffCount = (id: string, type: "min" | "max", value: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      workPatterns: prev.workPatterns.map((wp) =>
+        wp.id === id ? { ...wp, [type === "min" ? "minStaff" : "maxStaff"]: value } : wp,
+      ),
+    }))
+  }
+
+  const handleUpdateWorkPatternTime = (id: string, type: "startTime" | "endTime", value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      workPatterns: prev.workPatterns.map((wp) => (wp.id === id ? { ...wp, [type]: value } : wp)),
+    }))
+  }
+
+  const validateStep3 = () => {
+    return true
+  }
+
+  // Step 4: Work Calendar Settings
+  const [isHolidayDialogOpen, setIsHolidayDialogOpen] = useState(false)
+  const [newHolidayDate, setNewHolidayDate] = useState("")
+
+  const daysInMonth = useMemo(() => {
+    if (formData.periodType === "month") {
+      return new Date(Number.parseInt(formData.selectedYear), Number.parseInt(formData.selectedMonth), 0).getDate()
+    }
+    // For date range, calculate days between start and end
+    if (formData.startDate && formData.endDate) {
+      const start = new Date(formData.startDate)
+      const end = new Date(formData.endDate)
+      return Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1
+    }
+    return 0
+  }, [formData.periodType, formData.selectedYear, formData.selectedMonth, formData.startDate, formData.endDate])
+
+  const firstDayOfMonth = useMemo(() => {
+    if (formData.periodType === "month") {
+      const date = new Date(Number.parseInt(formData.selectedYear), Number.parseInt(formData.selectedMonth) - 1, 1)
+      return date.getDay() // 0 for Sunday, 1 for Monday
+    }
+    return 0 // Not applicable for date range, or assume Monday start for simplicity
+  }, [formData.periodType, formData.selectedYear, formData.selectedMonth])
+
+  const startDayOffset = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1 // 月曜日を週の開始とする
+
+  const calendarDays = useMemo(() => {
+    const days = []
+    if (formData.periodType === "month") {
+      for (let i = 0; i < startDayOffset; i++) {
+        days.push(null) // 月の初めまでの空白セル
+      }
+      for (let i = 1; i <= daysInMonth; i++) {
+        days.push(i)
+      }
+    } else if (formData.periodType === "dateRange" && formData.startDate && formData.endDate) {
+      const start = new Date(formData.startDate)
+      const end = new Date(formData.endDate)
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        days.push(new Date(d)) // Push Date objects for date range
+      }
+    }
+    return days
+  }, [
+    formData.periodType,
+    formData.selectedYear,
+    formData.selectedMonth,
+    formData.startDate,
+    formData.endDate,
+    daysInMonth,
+    startDayOffset,
+  ])
+
+  const getFormattedDateString = useCallback(
+    (day: number | Date | null) => {
+      if (day === null) return ""
+      if (typeof day === "number") {
+        return `${formData.selectedYear}-${formData.selectedMonth}-${String(day).padStart(2, "0")}`
+      }
+      return day.toISOString().split("T")[0]
+    },
+    [formData.selectedYear, formData.selectedMonth],
+  )
+
+  const handleAddHoliday = () => {
+    if (newHolidayDate && !formData.holidays.includes(newHolidayDate)) {
+      setFormData((prev) => ({
+        ...prev,
+        holidays: [...prev.holidays, newHolidayDate].sort(),
+      }))
+      setNewHolidayDate("")
+      setIsHolidayDialogOpen(false)
+    }
+  }
+
+  const handleDailyWorkPatternChange = (dateString: string, patternId: string, checked: boolean) => {
+    setFormData((prev) => {
+      const current = prev.dailyWorkPatterns[dateString] || []
+      return {
+        ...prev,
+        dailyWorkPatterns: {
+          ...prev.dailyWorkPatterns,
+          [dateString]: checked ? [...current, patternId] : current.filter((id) => id !== patternId),
+        },
+      }
+    })
+  }
+
+  const handleApplyToAllDays = () => {
+    const allDaysPatterns: { [date: string]: string[] } = {}
+    // 主要な勤務形態（日勤、夜勤）を全日に適用
+    const commonPatterns = formData.workPatterns
+      .filter((wp) => wp.name === "日勤 (日直)" || wp.name === "夜勤 (当直)")
+      .map((wp) => wp.id)
+
+    if (commonPatterns.length > 0) {
+      calendarDays.forEach((day) => {
+        if (day) {
+          const dateString = getFormattedDateString(day)
+          allDaysPatterns[dateString] = commonPatterns // 共通のパターンを適用
+        }
+      })
+      setFormData((prev) => ({
+        ...prev,
+        dailyWorkPatterns: allDaysPatterns,
+      }))
+    } else {
+      // 共通パターンがない場合のフォールバック：全ての既存パターンを適用
+      const allExistingPatternIds = formData.workPatterns.map((wp) => wp.id)
+      if (allExistingPatternIds.length > 0) {
+        calendarDays.forEach((day) => {
+          if (day) {
+            const dateString = getFormattedDateString(day)
+            allDaysPatterns[dateString] = allExistingPatternIds
+          }
+        })
+        setFormData((prev) => ({
+          ...prev,
+          dailyWorkPatterns: allDaysPatterns,
+        }))
+      }
+    }
+  }
+
+  const validateStep4 = () => {
+    return true
+  }
+
+  // Step 5: Member Specific Settings
+  const [isBulkSettingOpen, setIsBulkSettingOpen] = useState(false)
+  const [bulkMinDays, setBulkMinDays] = useState(1)
+  const [bulkMaxDays, setBulkMaxDays] = useState(30)
+  const [selectedBulkWorkPatternId, setSelectedBulkWorkPatternId] = useState<string | null>(null) // この行を追加
+
+  const handleBulkApplyDays = () => {
+    if (!selectedBulkWorkPatternId) {
+      alert("一括設定を適用する勤務形態を選択してください。")
+      return
+    }
+
+    setFormData((prev) => {
+      const newMemberMinMaxDays = { ...prev.memberMinMaxDays }
+      staff.forEach((s) => {
+        newMemberMinMaxDays[s.id] = {
+          ...(newMemberMinMaxDays[s.id] || {}),
+          [selectedBulkWorkPatternId]: { min: bulkMinDays, max: bulkMaxDays },
+        }
+      })
+      return {
+        ...prev,
+        memberMinMaxDays: newMemberMinMaxDays,
+      }
+    })
+    setIsBulkSettingOpen(false)
+    setSelectedBulkWorkPatternId(null) // 適用後にリセット
+  }
+
+  const handleUpdateMemberDays = (staffId: number, workPatternId: string, type: "min" | "max", value: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      memberMinMaxDays: {
+        ...prev.memberMinMaxDays,
+        [staffId]: {
+          ...(prev.memberMinMaxDays[staffId] || {}), // スタッフIDのオブジェクトが存在することを確認
+          [workPatternId]: {
+            ...(prev.memberMinMaxDays[staffId]?.[workPatternId] || { min: 0, max: 0 }), // 勤務形態IDのオブジェクトが存在することを確認
+            [type]: value,
+          },
+        },
+      },
+    }))
+  }
+
+  const validateStep5 = () => {
+    return true
+  }
+
+  // Step 6: Custom Rules
+  const [isAddRuleModalOpen, setIsAddRuleModalOpen] = useState(false)
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
+  const [currentPlaceholderValues, setCurrentPlaceholderValues] = useState<Record<string, any>>({})
+  const [editingRuleIndex, setEditingRuleIndex] = useState<number | null>(null) // 編集中のルールのインデックス
+
+  const ruleTemplates: RuleTemplate[] = useMemo(
+    () => [
+      {
+        id: "pair_exclusion",
+        label: "「{memberA}」と「{memberB}」を同じシフトに配置しない",
+        placeholders: [
+          { key: "memberA", type: "member", label: "メンバーA" },
+          { key: "memberB", type: "member", label: "メンバーB" },
+        ],
+      },
+      {
+        id: "required_personnel_role",
+        label: "「{workPattern}」に「{role}」を必ず含める",
+        placeholders: [
+          { key: "workPattern", type: "workPattern", label: "勤務形態" },
+          { key: "role", type: "role", label: "必須役割" },
+        ],
+      },
+      {
+        id: "work_pattern_sequence",
+        label: "「{workPatternA}」の翌日は「{workPatternB}」を必須とする (対象: {targetRole})",
+        placeholders: [
+          { key: "workPatternA", type: "workPattern", label: "前日の勤務形態" },
+          { key: "workPatternB", type: "workPattern", label: "翌日の勤務形態" },
+          { key: "targetRole", type: "role", label: "対象役割" },
+        ],
+      },
+      // 必要に応じて他のルールテンプレートを追加
+      // {
+      //   id: "skill_minimum",
+      //   label: "「{member}」に必要スキル数を「{skillCount}」以上",
+      //   placeholders: [
+      //     { key: "member", type: "member", label: "対象メンバー" },
+      //     { key: "skillCount", type: "number", label: "スキル数" },
+      //   ],
+      // },
+    ],
+    [],
+  )
+
+  const selectedTemplate = useMemo(
+    () => ruleTemplates.find((t) => t.id === selectedTemplateId),
+    [selectedTemplateId, ruleTemplates],
+  )
+
+  const handleAddRule = () => {
+    if (!selectedTemplate) return
+
+    // プレースホルダーのバリデーション
+    const errors: Record<string, string> = {}
+    selectedTemplate.placeholders.forEach((p) => {
+      if (!currentPlaceholderValues[p.key]) {
+        errors[p.key] = `${p.label}は必須です。`
+      }
+    })
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors) // モーダル内のエラー表示用
+      return
+    }
+
+    setFormData((prev) => {
+      const newAppliedRules = [...prev.customRules.appliedRules]
+      const newRule: AppliedRule = {
+        id: selectedTemplate.id,
+        values: currentPlaceholderValues,
+      }
+
+      if (editingRuleIndex !== null) {
+        newAppliedRules[editingRuleIndex] = newRule
+      } else {
+        newAppliedRules.push(newRule)
+      }
+
+      return {
+        ...prev,
+        customRules: {
+          ...prev.customRules,
+          appliedRules: newAppliedRules,
+        },
+      }
+    })
+    setIsAddRuleModalOpen(false)
+    resetRuleModal()
+  }
+
+  const handleEditRule = (index: number) => {
+    const ruleToEdit = formData.customRules.appliedRules[index]
+    setSelectedTemplateId(ruleToEdit.id)
+    setCurrentPlaceholderValues(ruleToEdit.values)
+    setEditingRuleIndex(index)
+    setIsAddRuleModalOpen(true)
+  }
+
+  const handleDeleteRule = (index: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      customRules: {
+        ...prev.customRules,
+        appliedRules: prev.customRules.appliedRules.filter((_, i) => i !== index),
+      },
+    }))
+  }
+
+  const resetRuleModal = () => {
+    setSelectedTemplateId(null)
+    setCurrentPlaceholderValues({})
+    setEditingRuleIndex(null)
+    setFormErrors({})
+  }
+
+  const getRuleDisplayString = useCallback(
+    (rule: AppliedRule) => {
+      const template = ruleTemplates.find((t) => t.id === rule.id)
+      if (!template) return `不明なルール (${rule.id})`
+
+      let displayString = template.label
+      template.placeholders.forEach((p) => {
+        let valueDisplay = String(rule.values[p.key] || "")
+        if (p.type === "member") {
+          const member = staff.find((s) => s.id === Number.parseInt(valueDisplay))
+          valueDisplay = member ? member.name : `不明なメンバー (${valueDisplay})`
+        } else if (p.type === "workPattern") {
+          const wp = formData.workPatterns.find((w) => w.id === valueDisplay)
+          valueDisplay = wp ? wp.name : `不明な勤務形態 (${valueDisplay})`
+        } else if (p.type === "role") {
+          valueDisplay =
+            valueDisplay === "admin"
+              ? "管理者"
+              : valueDisplay === "manager"
+                ? "マネージャー"
+                : valueDisplay === "staff"
+                  ? "スタッフ"
+                  : "なし"
+        }
+        displayString = displayString.replace(`{${p.key}}`, valueDisplay)
+      })
+      return displayString
+    },
+    [ruleTemplates, staff, formData.workPatterns],
+  )
+
+  const validateStep6 = () => {
+    // ここでカスタムルールのバリデーションを行う
+    // 例: 連続勤務日数が1以上か、など
+    return true
+  }
+
+  // JSONのエクスポートとインポートの関数
+  const handleJsonExport = () => {
+    const jsonString = JSON.stringify(formData, null, 2)
+    const blob = new Blob([jsonString], { type: "application/json" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = "shift_config.json"
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
+  const handleJsonImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      try {
+        const jsonString = event.target?.result as string
+        const data = JSON.parse(jsonString)
+        setFormData(data)
+        alert("JSONファイルをインポートしました。")
+      } catch (error) {
+        alert("JSONファイルの読み込みに失敗しました。")
+      }
+    }
+    reader.readAsText(file)
+  }
+
+  const handleReflectApprovedLeaves = () => {
+    // TODO: Implement logic to fetch and reflect approved leave requests
+    console.log("承認済み休暇希望をシフト作成に反映します。")
+    alert("承認済み休暇希望を反映しました (この機能は現在開発中です)。")
+  }
+
+  const handleSaveMySettings = () => {
+    try {
+      localStorage.setItem("myShiftSettings", JSON.stringify(formData))
+      alert("現在の設定をマイ設定として保存しました！")
+    } catch (error) {
+      console.error("Failed to save settings to local storage:", error)
+      alert("設定の保存に失敗しました。")
+    }
+  }
+
+  const handleLoadMySettings = () => {
+    try {
+      const savedSettingsString = localStorage.getItem("myShiftSettings")
+      if (savedSettingsString) {
+        const loadedSettings: SavedShiftConfig = JSON.parse(savedSettingsString)
+        // Ensure required fields have default values
+        const settingsWithDefaults = {
+          ...loadedSettings,
+          startDate: loadedSettings.startDate || "",
+          endDate: loadedSettings.endDate || "",
+          selectedYear: loadedSettings.selectedYear || currentYear.toString(),
+          selectedMonth: loadedSettings.selectedMonth || currentMonth,
+        }
+        setFormData(settingsWithDefaults)
+        alert("マイ設定を読み込みました！")
+      } else {
+        alert("保存されたマイ設定がありません。")
+      }
+    } catch (error) {
+      console.error("Failed to load settings from local storage:", error)
+      alert("設定の読み込みに失敗しました。")
+    }
+  }
+
+  // Navigation
+  const handleNext = () => {
+    let isValid = true
+    if (currentStep === 1) {
+      isValid = validateStep1()
+    } else if (currentStep === 2) {
+      isValid = validateStep2()
+    } else if (currentStep === 3) {
+      isValid = validateStep3()
+    } else if (currentStep === 4) {
+      isValid = validateStep4()
+    } else if (currentStep === 5) {
+      isValid = validateStep5()
+    } else if (currentStep === 6) {
+      isValid = validateStep6()
+    }
+
+    if (isValid) {
+      setCurrentStep((prev) => prev + 1)
+    }
+  }
+
+  const handleBack = () => {
+    setCurrentStep((prev) => prev - 1)
+  }
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { id, value } = e.target
+    setFormData((prev) => ({ ...prev, [id]: value }))
+    setFormErrors((prev) => ({ ...prev, [id]: "" })) // Clear error on change
+  }
+
+  const handleSelectChange = (id: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [id]: value }))
+    setFormErrors((prev) => ({ ...prev, [id]: "" })) // Clear error on change
+  }
+
+  const handlePeriodTypeChange = (value: "dateRange" | "month") => {
+    setFormData((prev) => ({ ...prev, periodType: value }))
+    setFormErrors({}) // Clear all errors when changing period type
+  }
+
+  const handleSubmit = () => {
+    // Final validation if needed, then call onSuccess
+    onSuccess(formData)
+    setCurrentStep(7) // Move to completion step
+  }
+
+  const handleStaffCheckboxChange = (staffId: number, checked: boolean) => {
+    setFormData((prev) => ({
+      ...prev,
+      selectedStaffIds: checked
+        ? [...prev.selectedStaffIds, staffId]
+        : prev.selectedStaffIds.filter((id) => id !== staffId),
+    }))
+  }
+
+  const filteredStaffByDepartment = staff.filter((s) => s.department === formData.department)
+
+  const handleSelectAllStaff = () => {
+    const allStaffIdsInDepartment = filteredStaffByDepartment.map((s) => s.id)
+    const allSelected = allStaffIdsInDepartment.every((id) => formData.selectedStaffIds.includes(id))
+
+    setFormData((prev) => ({
+      ...prev,
+      selectedStaffIds: allSelected
+        ? [] // Deselect all if all are currently selected
+        : allStaffIdsInDepartment, // Select all
+    }))
+  }
+
+  const timeOptions = useMemo(() => {
+    const options: string[] = []
+    for (let h = 0; h < 24; h++) {
+      for (let m = 0; m < 60; m += 30) {
+        const hour = String(h).padStart(2, "0")
+        const minute = String(m).padStart(2, "0")
+        options.push(`${hour}:${minute}`)
+      }
+    }
+    return options
+  }, [])
+
+  return (
+    <Card className="w-full max-w-3xl mx-auto">
+      <CardHeader>
+        <CardTitle>新規シフト作成 - ステップ {currentStep}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {/* Step 1: Period & Department */}
+        {currentStep === 1 && (
+          <div className="space-y-6">
+            <h4 className="text-lg font-semibold">1. 期間と部署の選択</h4>
+
+            <div className="grid gap-4">
+              <Label>期間選択方法 *</Label>
+              <RadioGroup
+                defaultValue="dateRange"
+                value={formData.periodType}
+                onValueChange={handlePeriodTypeChange}
+                className="flex space-x-4"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="dateRange" id="period-date-range" />
+                  <Label htmlFor="period-date-range">日付範囲で選択</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="month" id="period-month" />
+                  <Label htmlFor="period-month">月で選択</Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            {formData.periodType === "dateRange" && (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="startDate">開始日 *</Label>
+                  <Input id="startDate" type="date" value={formData.startDate} onChange={handleChange} />
+                  {formErrors.startDate && <p className="text-red-500 text-sm">{formErrors.startDate}</p>}
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="endDate">終了日 *</Label>
+                  <Input id="endDate" type="date" value={formData.endDate} onChange={handleChange} />
+                  {formErrors.endDate && <p className="text-red-500 text-sm">{formErrors.endDate}</p>}
+                </div>
+              </div>
+            )}
+
+            {formData.periodType === "month" && (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="selectedYear">年 *</Label>
+                  <Select
+                    value={formData.selectedYear}
+                    onValueChange={(val) => handleSelectChange("selectedYear", val)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="年を選択" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {years.map((year) => (
+                        <SelectItem key={year} value={year}>
+                          {year}年
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {formErrors.selectedYear && <p className="text-red-500 text-sm">{formErrors.selectedYear}</p>}
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="selectedMonth">月 *</Label>
+                  <Select
+                    value={formData.selectedMonth}
+                    onValueChange={(val) => handleSelectChange("selectedMonth", val)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="月を選択" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {months.map((month) => (
+                        <SelectItem key={month} value={month}>
+                          {Number.parseInt(month)}月
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {formErrors.selectedMonth && <p className="text-red-500 text-sm">{formErrors.selectedMonth}</p>}
+                </div>
+              </div>
+            )}
+
+            <div className="grid gap-2">
+              <Label htmlFor="department">部署 *</Label>
+              <Select value={formData.department} onValueChange={(val) => handleSelectChange("department", val)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="部署を選択" />
+                </SelectTrigger>
+                <SelectContent>
+                  {departments.map((dept) => (
+                    <SelectItem key={dept.id} value={dept.name}>
+                      {dept.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {formErrors.department && <p className="text-red-500 text-sm">{formErrors.department}</p>}
+            </div>
+          </div>
+        )}
+
+        {/* Step 2: Staff Selection */}
+        {currentStep === 2 && (
+          <div className="space-y-4">
+            <h4 className="text-lg font-semibold">2. 担当スタッフ</h4>
+            {formData.department ? (
+              <div className="grid gap-2">
+                <Label>選択された部署: {formData.department}</Label>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSelectAllStaff}
+                  className="w-fit bg-transparent"
+                  disabled={filteredStaffByDepartment.length === 0}
+                >
+                  {filteredStaffByDepartment.length > 0 &&
+                  filteredStaffByDepartment.every((s) => formData.selectedStaffIds.includes(s.id))
+                    ? "全解除"
+                    : "全選択"}
+                </Button>
+                <div className="max-h-60 overflow-y-auto border rounded-md p-4">
+                  {filteredStaffByDepartment.length > 0 ? (
+                    filteredStaffByDepartment.map((member) => (
+                      <div key={member.id} className="flex items-center space-x-2 py-1">
+                        <Checkbox
+                          id={`staff-${member.id}`}
+                          checked={formData.selectedStaffIds.includes(member.id)}
+                          onCheckedChange={(checked) => handleStaffCheckboxChange(member.id, checked as boolean)}
+                        />
+                        <label htmlFor={`staff-${member.id}`} className="text-sm font-medium leading-none">
+                          {member.name} ({member.employeeId})
+                        </label>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-muted-foreground text-sm">この部署にはスタッフがいません。</p>
+                  )}
+                </div>
+                {formErrors.selectedStaffIds && <p className="text-red-500 text-sm">{formErrors.selectedStaffIds}</p>}
+              </div>
+            ) : (
+              <p className="text-muted-foreground">ステップ1で部署を選択してください。</p>
+            )}
+          </div>
+        )}
+
+        {/* Step 3: Work Pattern Settings */}
+        {currentStep === 3 && (
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">3. 勤務形態設定</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {formData.workPatterns.map((pattern) => (
+                <Card key={pattern.id}>
+                  <CardHeader className="flex flex-col items-start gap-1 pb-2">
+                    <CardTitle className="text-sm font-medium">{pattern.name}</CardTitle>
+                    <div className="flex gap-1 items-center">
+                      <Select
+                        value={pattern.startTime}
+                        onValueChange={(val) => handleUpdateWorkPatternTime(pattern.id, "startTime", val)}
+                      >
+                        <SelectTrigger className="w-[90px] h-8 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-60 overflow-y-auto">
+                          {timeOptions.map((time) => (
+                            <SelectItem key={time} value={time}>
+                              {time}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <span>-</span>
+                      <Select
+                        value={pattern.endTime}
+                        onValueChange={(val) => handleUpdateWorkPatternTime(pattern.id, "endTime", val)}
+                      >
+                        <SelectTrigger className="w-[90px] h-8 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-60 overflow-y-auto">
+                          {timeOptions.map((time) => (
+                            <SelectItem key={time} value={time}>
+                              {time}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label>最少人数:</Label>
+                      <Select
+                        value={pattern.minStaff.toString()}
+                        onValueChange={(val) =>
+                          handleUpdateWorkPatternStaffCount(pattern.id, "min", Number.parseInt(val))
+                        }
+                      >
+                        <SelectTrigger className="w-[80px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.from({ length: 21 }, (_, i) => i).map((num) => (
+                            <SelectItem key={num} value={num.toString()}>
+                              {num}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Label>最大人数:</Label>
+                      <Select
+                        value={pattern.maxStaff.toString()}
+                        onValueChange={(val) =>
+                          handleUpdateWorkPatternStaffCount(pattern.id, "max", Number.parseInt(val))
+                        }
+                      >
+                        <SelectTrigger className="w-[80px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.from({ length: 21 }, (_, i) => i).map((num) => (
+                            <SelectItem key={num} value={num.toString()}>
+                              {num}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+            <Dialog open={isAddCustomWorkPatternOpen} onOpenChange={setIsAddCustomWorkPatternOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline">
+                  <Plus className="h-4 w-4 mr-2" />
+                  カスタム勤務形態を追加
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>カスタム勤務形態を追加</DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="custom-pattern-name">勤務名称 *</Label>
+                    <Input
+                      id="custom-pattern-name"
+                      value={newWorkPatternName}
+                      onChange={(e) => setNewWorkPatternName(e.target.value)}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="custom-pattern-start">開始時刻 *</Label>
+                      <Select value={newWorkPatternStartTime} onValueChange={setNewWorkPatternStartTime}>
+                        <SelectTrigger id="custom-pattern-start">
+                          <SelectValue placeholder="開始時刻" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-60 overflow-y-auto">
+                          {timeOptions.map((time) => (
+                            <SelectItem key={time} value={time}>
+                              {time}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="custom-pattern-end">終了時刻 *</Label>
+                      <Select value={newWorkPatternEndTime} onValueChange={setNewWorkPatternEndTime}>
+                        <SelectTrigger id="custom-pattern-end">
+                          <SelectValue placeholder="終了時刻" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-60 overflow-y-auto">
+                          {timeOptions.map((time) => (
+                            <SelectItem key={time} value={time}>
+                              {time}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="custom-pattern-min">最少人数</Label>
+                      <Select
+                        value={newWorkPatternMinStaff.toString()}
+                        onValueChange={(val) => setNewWorkPatternMinStaff(Number.parseInt(val))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.from({ length: 21 }, (_, i) => i).map((num) => (
+                            <SelectItem key={num} value={num.toString()}>
+                              {num}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="custom-pattern-max">最大人数</Label>
+                      <Select
+                        value={newWorkPatternMaxStaff.toString()}
+                        onValueChange={(val) => setNewWorkPatternMaxStaff(Number.parseInt(val))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.from({ length: 21 }, (_, i) => i).map((num) => (
+                            <SelectItem key={num} value={num.toString()}>
+                              {num}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsAddCustomWorkPatternOpen(false)}>
+                    キャンセル
+                  </Button>
+                  <Button onClick={handleAddCustomWorkPattern}>追加</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+        )}
+
+        {/* Step 4: Work Calendar Settings */}
+        {currentStep === 4 && (
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">4. 勤務カレンダー設定</h3>
+            <div className="grid grid-cols-7 gap-2 text-center text-base">
+              {["月", "火", "水", "木", "金", "土", "日"].map((day) => (
+                <div key={day} className="font-medium text-gray-500 dark:text-gray-400 py-2">
+                  {day}
+                </div>
+              ))}
+              {calendarDays.map((day, index) => {
+                const dateString = getFormattedDateString(day)
+                const isHoliday = day && formData.holidays.includes(dateString)
+                const patternsForDay = formData.dailyWorkPatterns[dateString] || []
+
+                return (
+                  <Popover key={index}>
+                    <PopoverTrigger asChild>
+                      <div
+                        className={cn(
+                          "p-3 rounded-md aspect-square flex flex-col items-center justify-center border cursor-pointer",
+                          day ? "text-gray-700 dark:text-gray-300" : "opacity-0 pointer-events-none",
+                          isHoliday && "bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-200",
+                          patternsForDay.length > 0 &&
+                            "bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200 font-semibold",
+                        )}
+                      >
+                        {typeof day === "number" ? day : day?.getDate()}
+                        {patternsForDay.length > 0 && (
+                          <div className="text-xs mt-1 space-y-0.5">
+                            {patternsForDay.map((pId) => {
+                              const pattern = formData.workPatterns.find((wp) => wp.id === pId)
+                              return pattern ? (
+                                <span key={pId} className="block">
+                                  {pattern.name}
+                                </span>
+                              ) : null
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </PopoverTrigger>
+                    {day && (
+                      <PopoverContent className="w-auto p-2">
+                        <div className="grid gap-2">
+                          <div className="font-medium text-sm mb-1">勤務形態を選択</div>
+                          {formData.workPatterns.map((pattern) => (
+                            <div key={pattern.id} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`pattern-${dateString}-${pattern.id}`}
+                                checked={formData.dailyWorkPatterns[dateString]?.includes(pattern.id) || false}
+                                onCheckedChange={(checked) =>
+                                  handleDailyWorkPatternChange(dateString, pattern.id, checked as boolean)
+                                }
+                              />
+                              <label
+                                htmlFor={`pattern-${dateString}-${pattern.id}`}
+                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                              >
+                                {pattern.name}
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                      </PopoverContent>
+                    )}
+                  </Popover>
+                )
+              })}
+            </div>
+            <div className="flex gap-2 mt-4">
+              <Button variant="outline" onClick={handleApplyToAllDays}>
+                全日適用
+              </Button>
+              <Dialog open={isHolidayDialogOpen} onOpenChange={setIsHolidayDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline">祝日登録</Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-sm">
+                  <DialogHeader>
+                    <DialogTitle>祝日を登録</DialogTitle>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="holiday-date">日付 *</Label>
+                      <Input
+                        id="holiday-date"
+                        type="date"
+                        value={newHolidayDate}
+                        onChange={(e) => setNewHolidayDate(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsHolidayDialogOpen(false)}>
+                      キャンセル
+                    </Button>
+                    <Button onClick={handleAddHoliday}>登録</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
+          </div>
+        )}
+
+        {/* Step 5: Member Specific Settings */}
+        {currentStep === 5 && (
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">5. メンバー別勤務設定</h3>
+            <div className="flex justify-end">
+              <Popover open={isBulkSettingOpen} onOpenChange={setIsBulkSettingOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline">一括設定</Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-4">
+                  <div className="grid gap-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="bulk-work-pattern">勤務形態</Label>
+                      <Select value={selectedBulkWorkPatternId || ""} onValueChange={setSelectedBulkWorkPatternId}>
+                        <SelectTrigger className="w-[180px]">
+                          <SelectValue placeholder="勤務形態を選択" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {formData.workPatterns.map((wp) => (
+                            <SelectItem key={wp.id} value={wp.id}>
+                              {wp.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="bulk-min-days">最少日数</Label>
+                      <Select
+                        value={bulkMinDays.toString()}
+                        onValueChange={(val) => setBulkMinDays(Number.parseInt(val))}
+                        disabled={!selectedBulkWorkPatternId} // 勤務形態が選択されていない場合は無効化
+                      >
+                        <SelectTrigger className="w-[100px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.from({ length: 31 }, (_, i) => i).map((num) => (
+                            <SelectItem key={num} value={num.toString()}>
+                              {num}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="bulk-max-days">最大日数</Label>
+                      <Select
+                        value={bulkMaxDays.toString()}
+                        onValueChange={(val) => setBulkMaxDays(Number.parseInt(val))}
+                        disabled={!selectedBulkWorkPatternId} // 勤務形態が選択されていない場合は無効化
+                      >
+                        <SelectTrigger className="w-[100px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.from({ length: 31 }, (_, i) => i).map((num) => (
+                            <SelectItem key={num} value={num.toString()}>
+                              {num}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button onClick={handleBulkApplyDays} disabled={!selectedBulkWorkPatternId}>
+                      適用
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="overflow-x-auto">
+              {" "}
+              {/* テーブルが横に広がるため、スクロール可能にする */}
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="sticky left-0 bg-background z-10 min-w-[100px]">氏名</TableHead>
+                    <TableHead className="sticky left-[100px] bg-background z-10 min-w-[80px]">役割</TableHead>
+                    <TableHead className="sticky left-[180px] bg-background z-10 min-w-[100px]">部署</TableHead>
+                    {formData.workPatterns.map((wp) => (
+                      <TableHead key={wp.id} className="text-center min-w-[160px]">
+                        {wp.name}
+                        <div className="text-xs text-muted-foreground">(最少/最大)</div>
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {staff.map((member) => (
+                    <TableRow key={member.id}>
+                      <TableCell className="sticky left-0 bg-background z-10">{member.name}</TableCell>
+                      <TableCell className="sticky left-[100px] bg-background z-10">{member.role}</TableCell>
+                      <TableCell className="sticky left-[180px] bg-background z-10">{member.department}</TableCell>
+                      {formData.workPatterns.map((wp) => (
+                        <TableCell key={wp.id} className="text-right">
+                          <div className="flex gap-1 justify-end">
+                            <Select
+                              value={(formData.memberMinMaxDays[member.id]?.[wp.id]?.min || 0).toString()}
+                              onValueChange={(val) =>
+                                handleUpdateMemberDays(member.id, wp.id, "min", Number.parseInt(val))
+                              }
+                            >
+                              <SelectTrigger className="w-[60px]">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {Array.from({ length: 31 }, (_, i) => i).map((num) => (
+                                  <SelectItem key={num} value={num.toString()}>
+                                    {num}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <span>/</span>
+                            <Select
+                              value={(formData.memberMinMaxDays[member.id]?.[wp.id]?.max || 0).toString()}
+                              onValueChange={(val) =>
+                                handleUpdateMemberDays(member.id, wp.id, "max", Number.parseInt(val))
+                              }
+                            >
+                              <SelectTrigger className="w-[60px]">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {Array.from({ length: 31 }, (_, i) => i).map((num) => (
+                                  <SelectItem key={num} value={num.toString()}>
+                                    {num}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        )}
+
+        {/* Step 6: Custom Rules */}
+        {currentStep === 6 && (
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">6. カスタムルール設定</h3>
+            <Accordion type="multiple" className="w-full">
+              <AccordionItem value="dynamic-rules">
+                <AccordionTrigger>動的カスタムルール</AccordionTrigger>
+                <AccordionContent className="space-y-4 p-4 border rounded-md mt-2">
+                  <p className="text-sm text-muted-foreground">
+                    定義済みのテンプレートを使用してカスタムルールを追加します。
+                  </p>
+                  <Button variant="outline" onClick={() => setIsAddRuleModalOpen(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    ルールを追加
+                  </Button>
+
+                  <div className="mt-4">
+                    <h4 className="font-semibold mb-2">適用中のルール一覧:</h4>
+                    {formData.customRules.appliedRules.length > 0 ? (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>ルール</TableHead>
+                            <TableHead className="w-[100px] text-right">アクション</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {formData.customRules.appliedRules.map((rule, index) => (
+                            <TableRow key={index}>
+                              <TableCell>{getRuleDisplayString(rule)}</TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex justify-end gap-2">
+                                  <Button variant="ghost" size="icon" onClick={() => handleEditRule(index)}>
+                                    <Edit className="h-4 w-4" />
+                                    <span className="sr-only">編集</span>
+                                  </Button>
+                                  <Button variant="ghost" size="icon" onClick={() => handleDeleteRule(index)}>
+                                    <Trash2 className="h-4 w-4" />
+                                    <span className="sr-only">削除</span>
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    ) : (
+                      <p className="text-muted-foreground text-sm">まだカスタムルールは追加されていません。</p>
+                    )}
+                  </div>
+
+                  <Dialog
+                    open={isAddRuleModalOpen}
+                    onOpenChange={(open) => {
+                      setIsAddRuleModalOpen(open)
+                      if (!open) resetRuleModal() // モーダルを閉じるときにリセット
+                    }}
+                  >
+                    <DialogContent className="max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>{editingRuleIndex !== null ? "ルールを編集" : "ルールを追加"}</DialogTitle>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                        <div className="grid gap-2">
+                          <Label htmlFor="rule-template-select">ルールテンプレート *</Label>
+                          <Select
+                            value={selectedTemplateId || ""}
+                            onValueChange={(val) => {
+                              setSelectedTemplateId(val)
+                              setCurrentPlaceholderValues({}) // テンプレート変更時にプレースホルダー値をリセット
+                              setFormErrors({}) // エラーもリセット
+                            }}
+                            disabled={editingRuleIndex !== null} // 編集中はテンプレート変更不可
+                          >
+                            <SelectTrigger id="rule-template-select">
+                              <SelectValue placeholder="テンプレートを選択" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {ruleTemplates.map((template) => (
+                                <SelectItem key={template.id} value={template.id}>
+                                  {template.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {formErrors.template && <p className="text-red-500 text-sm">{formErrors.template}</p>}
+                        </div>
+
+                        {selectedTemplate && (
+                          <div className="space-y-4 mt-2">
+                            <h5 className="font-semibold">プレースホルダー入力:</h5>
+                            {selectedTemplate.placeholders.map((p) => (
+                              <div key={p.key} className="grid gap-2">
+                                <Label htmlFor={`placeholder-${p.key}`}>{p.label} *</Label>
+                                {p.type === "member" && (
+                                  <Select
+                                    value={currentPlaceholderValues[p.key]?.toString() || ""}
+                                    onValueChange={(val) => {
+                                      setCurrentPlaceholderValues((prev) => ({
+                                        ...prev,
+                                        [p.key]: Number.parseInt(val),
+                                      }))
+                                      setFormErrors((prev) => ({ ...prev, [p.key]: "" }))
+                                    }}
+                                  >
+                                    <SelectTrigger id={`placeholder-${p.key}`}>
+                                      <SelectValue placeholder={`${p.label}を選択`} />
+                                    </SelectTrigger>
+                                    <SelectContent className="max-h-60 overflow-y-auto">
+                                      {staff.map((member) => (
+                                        <SelectItem key={member.id} value={member.id.toString()}>
+                                          {member.name}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                )}
+                                {p.type === "workPattern" && (
+                                  <Select
+                                    value={currentPlaceholderValues[p.key] || ""}
+                                    onValueChange={(val) => {
+                                      setCurrentPlaceholderValues((prev) => ({ ...prev, [p.key]: val }))
+                                      setFormErrors((prev) => ({ ...prev, [p.key]: "" }))
+                                    }}
+                                  >
+                                    <SelectTrigger id={`placeholder-${p.key}`}>
+                                      <SelectValue placeholder={`${p.label}を選択`} />
+                                    </SelectTrigger>
+                                    <SelectContent className="max-h-60 overflow-y-auto">
+                                      {formData.workPatterns.map((wp) => (
+                                        <SelectItem key={wp.id} value={wp.id}>
+                                          {wp.name}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                )}
+                                {p.type === "role" && (
+                                  <Select
+                                    value={currentPlaceholderValues[p.key] || ""}
+                                    onValueChange={(val) => {
+                                      setCurrentPlaceholderValues((prev) => ({ ...prev, [p.key]: val }))
+                                      setFormErrors((prev) => ({ ...prev, [p.key]: "" }))
+                                    }}
+                                  >
+                                    <SelectTrigger id={`placeholder-${p.key}`}>
+                                      <SelectValue placeholder={`${p.label}を選択`} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="admin">管理者</SelectItem>
+                                      <SelectItem value="manager">マネージャー</SelectItem>
+                                      <SelectItem value="staff">スタッフ</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                )}
+                                {p.type === "number" && (
+                                  <Input
+                                    id={`placeholder-${p.key}`}
+                                    type="number"
+                                    value={currentPlaceholderValues[p.key] || ""}
+                                    onChange={(e) => {
+                                      setCurrentPlaceholderValues((prev) => ({
+                                        ...prev,
+                                        [p.key]: Number.parseInt(e.target.value),
+                                      }))
+                                      setFormErrors((prev) => ({ ...prev, [p.key]: "" }))
+                                    }}
+                                  />
+                                )}
+                                {p.type === "text" && (
+                                  <Input
+                                    id={`placeholder-${p.key}`}
+                                    type="text"
+                                    value={currentPlaceholderValues[p.key] || ""}
+                                    onChange={(e) => {
+                                      setCurrentPlaceholderValues((prev) => ({ ...prev, [p.key]: e.target.value }))
+                                      setFormErrors((prev) => ({ ...prev, [p.key]: "" }))
+                                    }}
+                                  />
+                                )}
+                                {formErrors[p.key] && <p className="text-red-500 text-sm">{formErrors[p.key]}</p>}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsAddRuleModalOpen(false)}>
+                          キャンセル
+                        </Button>
+                        <Button onClick={handleAddRule}>{editingRuleIndex !== null ? "更新" : "追加"}</Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="max-consecutive-days">
+                <AccordionTrigger>連続勤務日数上限</AccordionTrigger>
+                <AccordionContent className="space-y-4 p-4 border rounded-md mt-2">
+                  <p className="text-sm text-muted-foreground">スタッフが連続で勤務できる最大日数を設定します。</p>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="max-consecutive-days">最大連続勤務日数:</Label>
+                    <Input
+                      id="max-consecutive-days"
+                      type="number"
+                      min="1"
+                      value={formData.customRules.maxConsecutiveWorkDays}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          customRules: {
+                            ...prev.customRules,
+                            maxConsecutiveWorkDays: Number.parseInt(e.target.value),
+                          },
+                        }))
+                      }
+                      className="w-[80px]"
+                    />
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="max-weekend-days">
+                <AccordionTrigger>週末勤務回数上限</AccordionTrigger>
+                <AccordionContent className="space-y-4 p-4 border rounded-md mt-2">
+                  <p className="text-sm text-muted-foreground">月に勤務できる週末の最大回数を設定します。</p>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="max-weekend-days">月間週末勤務上限:</Label>
+                    <Input
+                      id="max-weekend-days"
+                      type="number"
+                      min="0"
+                      value={formData.customRules.maxWeekendWorkDays}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          customRules: {
+                            ...prev.customRules,
+                            maxWeekendWorkDays: Number.parseInt(e.target.value),
+                          },
+                        }))
+                      }
+                      className="w-[80px]"
+                    />
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+
+            <div className="flex gap-2 mt-4">
+              <Button variant="outline" onClick={handleJsonExport}>
+                JSONエクスポート
+              </Button>
+              <Input type="file" accept=".json" onChange={handleJsonImport} className="hidden" id="json-import" />
+              <Label
+                htmlFor="json-import"
+                className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 cursor-pointer"
+              >
+                JSONインポート
+              </Label>
+              <Button variant="outline" onClick={handleReflectApprovedLeaves}>
+                承認済み休暇希望を反映
+              </Button>
+              <Button variant="outline" onClick={handleLoadMySettings}>
+                マイ設定呼び出し
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 7: Confirmation */}
+        {currentStep === 7 && (
+          <div className="space-y-4">
+            <h4 className="text-lg font-semibold">7. 入力内容の確認</h4>
+            <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto">
+              <h4 className="font-semibold">期間設定:</h4>
+              {formData.periodType === "dateRange" ? (
+                <p>
+                  {formData.startDate} 〜 {formData.endDate}
+                </p>
+              ) : (
+                <p>
+                  {formData.selectedYear}年 {Number.parseInt(formData.selectedMonth)}月
+                </p>
+              )}
+
+              <h4 className="font-semibold mt-4">部署:</h4>
+              <p>{formData.department}</p>
+
+              <h4 className="font-semibold mt-4">担当スタッフ:</h4>
+              <ul className="list-disc pl-5">
+                {formData.selectedStaffIds.length > 0 ? (
+                  formData.selectedStaffIds.map((id) => {
+                    const member = staff.find((s) => s.id === id)
+                    return <li key={id}>{member ? member.name : `不明なスタッフ (${id})`}</li>
+                  })
+                ) : (
+                  <li>なし</li>
+                )}
+              </ul>
+
+              <h4 className="font-semibold mt-4">勤務形態設定:</h4>
+              <ul className="list-disc pl-5">
+                {formData.workPatterns.map((wp) => (
+                  <li key={wp.id}>
+                    {wp.name} ({wp.startTime}-{wp.endTime}) - 最少: {wp.minStaff}名, 最大: {wp.maxStaff}名
+                  </li>
+                ))}
+              </ul>
+
+              <h4 className="font-semibold mt-4">勤務カレンダー設定 (一部):</h4>
+              <p>各日の設定はカレンダー上で確認してください。</p>
+              <p>祝日: {formData.holidays.join(", ")}</p>
+
+              <h4 className="font-semibold mt-4">メンバー別勤務設定 (一部):</h4>
+              <ul className="list-disc pl-5">
+                {staff.map((s) => (
+                  <li key={s.id}>
+                    {s.name}:
+                    <ul className="list-circle pl-5">
+                      {formData.workPatterns.map((wp) => (
+                        <li key={wp.id}>
+                          {wp.name} - 最少: {formData.memberMinMaxDays[s.id]?.[wp.id]?.min || 0}日, 最大:{" "}
+                          {formData.memberMinMaxDays[s.id]?.[wp.id]?.max || 0}日
+                        </li>
+                      ))}
+                    </ul>
+                  </li>
+                ))}
+              </ul>
+
+              <h4 className="font-semibold mt-4">カスタムルール設定:</h4>
+              <ul className="list-disc pl-5">
+                <li>動的カスタムルール:</li>
+                <ul className="list-circle pl-5">
+                  {formData.customRules.appliedRules.length > 0 ? (
+                    formData.customRules.appliedRules.map((rule, index) => (
+                      <li key={index}>{getRuleDisplayString(rule)}</li>
+                    ))
+                  ) : (
+                    <li>なし</li>
+                  )}
+                </ul>
+                <li>最大連続勤務日数: {formData.customRules.maxConsecutiveWorkDays}日</li>
+                <li>月間週末勤務上限: {formData.customRules.maxWeekendWorkDays}回</li>
+              </ul>
+            </div>
+          </div>
+        )}
+
+        {/* Navigation Buttons */}
+        {currentStep < 7 && (
+          <div className="flex justify-between pt-4 border-t mt-6">
+            {currentStep > 1 && (
+              <Button variant="outline" onClick={handleBack}>
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                戻る
+              </Button>
+            )}
+            {currentStep < 6 && (
+              <div className="flex gap-2 ml-auto">
+                <Button variant="outline" onClick={handleLoadMySettings}>
+                  マイ設定呼び出し
+                </Button>
+                <Button onClick={handleNext}>
+                  次へ
+                  <ArrowRight className="h-4 w-4 ml-2" />
+                </Button>
+              </div>
+            )}
+            {currentStep === 6 && (
+              <div className="flex gap-3 ml-auto">
+                <Button variant="outline" onClick={handleSaveMySettings}>
+                  <Save className="h-4 w-4 mr-2" />
+                  マイ設定として保存
+                </Button>
+                <Button onClick={handleSubmit} className="bg-gradient-to-r from-blue-500 to-cyan-500">
+                  スケジュール生成
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+        {currentStep === 7 && (
+          <div className="flex justify-end pt-4 border-t mt-6">
+            <Button onClick={onCancel}>完了</Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}

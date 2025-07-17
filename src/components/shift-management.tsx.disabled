@@ -1,0 +1,191 @@
+"use client"
+import { useState } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "src/components/ui/card"
+import { Button } from "src/components/ui/button"
+import { Badge } from "src/components/ui/badge"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "src/components/ui/select"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "src/components/ui/table"
+import { Plus, Edit } from "lucide-react"
+import { ShiftCreationForm } from "./shift-creation-form"
+import { GeneratedScheduleView } from "./generated-schedule-view" // Import the new component
+
+// ロール定義 (app/page.tsxからコピー)
+type UserRole = "admin" | "manager" | "staff"
+
+// 部署型定義 (app/page.tsxからコピー)
+interface Department {
+  id: number
+  name: string
+  workSystem: string
+  memberCount: number
+}
+
+// シフト型定義 (app/page.tsxからコピー)
+interface Shift {
+  id: number
+  date: string // YYYY-MM-DD
+  startTime: string // HH:MM
+  endTime: string // HH:MM
+  staffId: number
+  staffName: string
+  department: string
+  shiftType: string // 勤務形態名
+}
+
+// ユーザー型定義 (app/page.tsxからコピー)
+interface StaffMember {
+  id: number
+  name: string
+  department: string
+  role: UserRole
+  avatar: string
+  workload: number
+  status: string
+  employeeId: string
+  email?: string
+  birthDate?: string
+  nameKana?: string
+}
+
+// 新しい勤務形態の型定義 (ShiftSchedulerConfiguratorからコピー、ここでは使用しないが型定義として残す)
+// interface WorkPattern {
+//   id: number
+//   name: string
+//   startTime: string
+//   endTime: string
+//   department: string
+//   color: string
+//   description?: string
+// }
+
+interface ShiftManagementProps {
+  userRole: UserRole
+  sampleShifts: Shift[]
+  departments: Department[]
+  staff: StaffMember[]
+}
+
+export function ShiftManagement({ userRole, sampleShifts, departments, staff }: ShiftManagementProps) {
+  const [selectedDepartment, setSelectedDepartment] = useState<string | null>(null)
+  const [currentView, setCurrentView] = useState<"list" | "create" | "generated">("list") // 'list', 'create', 'generated'
+  const [generatedScheduleConfig, setGeneratedScheduleConfig] = useState<any>(null) // Store config for generated view
+
+  const filteredShifts =
+    selectedDepartment && selectedDepartment !== "all"
+      ? sampleShifts.filter((shift) => shift.department === selectedDepartment)
+      : sampleShifts
+
+  const handleNewShiftSuccess = (newShiftConfig: any) => {
+    console.log("New shift configuration created:", newShiftConfig)
+    setGeneratedScheduleConfig(newShiftConfig)
+    setCurrentView("generated") // Switch to generated schedule view
+  }
+
+  const handleRegenerateSchedule = () => {
+    // TODO: Implement actual schedule regeneration logic
+    alert("スケジュールを再生成します！")
+    // For demo, just log and stay on the same view
+    console.log("Regenerating schedule with config:", generatedScheduleConfig)
+  }
+
+  const handleConfirmSchedule = () => {
+    // TODO: Implement actual schedule confirmation logic
+    alert("スケジュールを確定しました！ダッシュボードへ反映されます。")
+    setCurrentView("list") // Go back to shift list after confirmation
+    setGeneratedScheduleConfig(null)
+  }
+
+  const handleBackToSettings = () => {
+    setCurrentView("create") // Go back to the creation form
+  }
+
+  if (currentView === "create") {
+    return (
+      <ShiftCreationForm
+        departments={departments}
+        staff={staff}
+        onCancel={() => setCurrentView("list")}
+        onSuccess={handleNewShiftSuccess}
+      />
+    )
+  }
+
+  if (currentView === "generated" && generatedScheduleConfig) {
+    return (
+      <GeneratedScheduleView
+        scheduleConfig={generatedScheduleConfig}
+        staff={staff} // Pass staff for display in generated view
+        onRegenerate={handleRegenerateSchedule}
+        onBackToSettings={handleBackToSettings}
+        onConfirmSchedule={handleConfirmSchedule}
+      />
+    )
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>シフト管理</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            {userRole === "admin" && (
+              <Select onValueChange={setSelectedDepartment}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="部署を選択" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全ての部署</SelectItem>
+                  {departments.map((dept) => (
+                    <SelectItem key={dept.id} value={dept.name}>
+                      {dept.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            <Button onClick={() => setCurrentView("create")}>
+              <Plus className="h-4 w-4 mr-2" />
+              新規シフト作成
+            </Button>
+          </div>
+
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>日付</TableHead>
+                <TableHead>時間</TableHead>
+                <TableHead>スタッフ</TableHead>
+                <TableHead>部署</TableHead>
+                <TableHead>タイプ</TableHead>
+                <TableHead>操作</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredShifts.map((shift) => (
+                <TableRow key={shift.id}>
+                  <TableCell>{shift.date}</TableCell>
+                  <TableCell>
+                    {shift.startTime} - {shift.endTime}
+                  </TableCell>
+                  <TableCell>{shift.staffName}</TableCell>
+                  <TableCell>{shift.department}</TableCell>
+                  <TableCell>
+                    <Badge variant="secondary">{shift.shiftType}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Button variant="outline" size="sm">
+                      <Edit className="h-3 w-3 mr-1" />
+                      編集
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}

@@ -1,0 +1,742 @@
+"use client"
+import { useState, useMemo } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "src/components/ui/card"
+import { Button } from "src/components/ui/button"
+import { Badge } from "src/components/ui/badge"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "src/components/ui/dialog"
+import { Input } from "src/components/ui/input"
+import { Label } from "src/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "src/components/ui/select"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "src/components/ui/table"
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "src/components/ui/accordion"
+import { Popover, PopoverContent, PopoverTrigger } from "src/components/ui/popover"
+import { Checkbox } from "src/components/ui/checkbox"
+import { Plus, Save } from "lucide-react"
+import { cn } from "src/lib/utils"
+
+// ロール定義 (app/page.tsxからコピー)
+type UserRole = "admin" | "manager" | "staff"
+
+// 部署型定義 (app/page.tsxからコピー)
+interface Department {
+  id: number
+  name: string
+  workSystem: string
+  memberCount: number
+}
+
+// シフト型定義 (app/page.tsxからコピー)
+interface Shift {
+  id: number
+  date: string // YYYY-MM-DD
+  startTime: string // HH:MM
+  endTime: string // HH:MM
+  staffId: number
+  staffName: string
+  department: string
+  shiftType: string // 勤務形態名
+}
+
+// ユーザー型定義 (app/page.tsxからコピー)
+interface StaffMember {
+  id: number
+  name: string
+  department: string
+  role: UserRole
+  avatar: string
+  workload: number
+  status: string
+  employeeId: string
+  email?: string
+  birthDate?: string
+  nameKana?: string
+}
+
+// 新しい勤務形態の型定義
+interface WorkPattern {
+  id: string
+  name: string
+  startTime: string
+  endTime: string
+  minStaff: number
+  maxStaff: number
+}
+
+interface ShiftSchedulerConfiguratorProps {
+  userRole: UserRole
+  sampleShifts: Shift[]
+  departments: Department[]
+  staff: StaffMember[]
+}
+
+export function ShiftSchedulerConfigurator({
+  userRole: _userRole,
+  sampleShifts: _sampleShifts,
+  departments: _departments,
+  staff: _staff,
+}: ShiftSchedulerConfiguratorProps) {
+  // 1. 期間設定
+  const currentYear = new Date().getFullYear()
+  const [selectedYear, setSelectedYear] = useState<string>(currentYear.toString())
+  const [selectedMonth, setSelectedMonth] = useState<string>((new Date().getMonth() + 1).toString().padStart(2, "0"))
+
+  const years = Array.from({ length: 5 }, (_, i) => (currentYear - 2 + i).toString()) // Current year, 2 previous, 2 next
+  const months = Array.from({ length: 12 }, (_, i) => (i + 1).toString().padStart(2, "0"))
+
+  // 2. 勤務形態設定
+  const initialWorkPatterns: WorkPattern[] = useMemo(() => {
+    const uniqueWorkSystems = new Set<string>()
+    _departments.forEach((dept) => {
+      dept.workSystem.split("、").forEach((ws) => {
+        // "2交代、3交代" のような形式を想定
+        uniqueWorkSystems.add(ws.trim())
+      })
+    })
+    return Array.from(uniqueWorkSystems)
+      .map((ws, index) => ({
+        id: `preset-${index}`,
+        name: ws,
+        startTime: "00:00", // Placeholder
+        endTime: "00:00", // Placeholder
+        minStaff: 1, // Default
+        maxStaff: 20, // Default
+      }))
+      .concat([
+        { id: "default-day", name: "日勤", startTime: "09:00", endTime: "18:00", minStaff: 3, maxStaff: 10 },
+        { id: "default-night", name: "夜勤", startTime: "17:00", endTime: "09:00", minStaff: 2, maxStaff: 5 },
+        { id: "default-holiday", name: "休み", startTime: "", endTime: "", minStaff: 0, maxStaff: 0 },
+      ])
+  }, [_departments])
+
+  const [workPatterns, setWorkPatterns] = useState<WorkPattern[]>(initialWorkPatterns)
+  const [isAddCustomWorkPatternOpen, setIsAddCustomWorkPatternOpen] = useState(false)
+  const [newWorkPatternName, setNewWorkPatternName] = useState("")
+  const [newWorkPatternStartTime, setNewWorkPatternStartTime] = useState("")
+  const [newWorkPatternEndTime, setNewWorkPatternEndTime] = useState("")
+  const [newWorkPatternMinStaff, setNewWorkPatternMinStaff] = useState(1)
+  const [newWorkPatternMaxStaff, setNewWorkPatternMaxStaff] = useState(20)
+
+  const handleAddCustomWorkPattern = () => {
+    if (newWorkPatternName && newWorkPatternStartTime && newWorkPatternEndTime) {
+      setWorkPatterns((prev) => [
+        ...prev,
+        {
+          id: `custom-${Date.now()}`,
+          name: newWorkPatternName,
+          startTime: newWorkPatternStartTime,
+          endTime: newWorkPatternEndTime,
+          minStaff: newWorkPatternMinStaff,
+          maxStaff: newWorkPatternMaxStaff,
+        },
+      ])
+      setNewWorkPatternName("")
+      setNewWorkPatternStartTime("")
+      setNewWorkPatternEndTime("")
+      setNewWorkPatternMinStaff(1)
+      setNewWorkPatternMaxStaff(20)
+      setIsAddCustomWorkPatternOpen(false)
+    }
+  }
+
+  const handleUpdateWorkPatternStaffCount = (id: string, type: "min" | "max", value: number) => {
+    setWorkPatterns((prev) =>
+      prev.map((wp) => (wp.id === id ? { ...wp, [type === "min" ? "minStaff" : "maxStaff"]: value } : wp)),
+    )
+  }
+
+  // 3. 勤務カレンダー設定
+  const daysInMonth = new Date(Number.parseInt(selectedYear), Number.parseInt(selectedMonth), 0).getDate()
+  const firstDayOfMonth = new Date(Number.parseInt(selectedYear), Number.parseInt(selectedMonth) - 1, 1).getDay() // 0 for Sunday, 1 for Monday
+  const startDayOffset = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1 // 月曜日を週の開始とする
+
+  const calendarDays = useMemo(() => {
+    const days = []
+    for (let i = 0; i < startDayOffset; i++) {
+      days.push(null) // 月の初めまでの空白セル
+    }
+    for (let i = 1; i <= daysInMonth; i++) {
+      days.push(i)
+    }
+    return days
+  }, [selectedYear, selectedMonth, daysInMonth, startDayOffset])
+
+  const [dailyWorkPatterns, setDailyWorkPatterns] = useState<{ [date: string]: string[] }>({}) // YYYY-MM-DD -> array of work pattern IDs
+  const [isHolidayDialogOpen, setIsHolidayDialogOpen] = useState(false)
+  const [newHolidayDate, setNewHolidayDate] = useState("")
+  const [holidays, setHolidays] = useState<string[]>(["2024-07-15", "2024-09-23"]) // Sample holidays
+
+  const handleAddHoliday = () => {
+    if (newHolidayDate && !holidays.includes(newHolidayDate)) {
+      setHolidays((prev) => [...prev, newHolidayDate].sort())
+      setNewHolidayDate("")
+      setIsHolidayDialogOpen(false)
+    }
+  }
+
+  const handleDayClick = (day: number | null) => {
+    if (day) {
+      const dateString = `${selectedYear}-${selectedMonth}-${String(day).padStart(2, "0")}`
+      // For simplicity, toggle a sample work pattern or open a popover
+      const currentPatterns = dailyWorkPatterns[dateString] || []
+      const samplePatternId = workPatterns[0]?.id // Use the first available work pattern
+      if (samplePatternId) {
+        setDailyWorkPatterns((prev) => ({
+          ...prev,
+          [dateString]: currentPatterns.includes(samplePatternId)
+            ? currentPatterns.filter((p) => p !== samplePatternId)
+            : [...currentPatterns, samplePatternId],
+        }))
+      }
+    }
+  }
+
+  const handleApplyToAllDays = () => {
+    const allDaysPatterns: { [date: string]: string[] } = {}
+    const defaultPattern = workPatterns.find((wp) => wp.name === "日勤")?.id || workPatterns[0]?.id
+    if (defaultPattern) {
+      calendarDays.forEach((day) => {
+        if (day) {
+          const dateString = `${selectedYear}-${selectedMonth}-${String(day).padStart(2, "0")}`
+          allDaysPatterns[dateString] = [defaultPattern]
+        }
+      })
+      setDailyWorkPatterns(allDaysPatterns)
+    }
+  }
+
+  // 4. メンバー別勤務設定
+  const [memberMinMaxDays, setMemberMinMaxDays] = useState<{ [staffId: number]: { min: number; max: number } }>({})
+  const [isBulkSettingOpen, setIsBulkSettingOpen] = useState(false)
+  const [bulkMinDays, setBulkMinDays] = useState(1)
+  const [bulkMaxDays, setBulkMaxDays] = useState(30)
+
+  const handleBulkApplyDays = () => {
+    const newMemberMinMaxDays: { [staffId: number]: { min: number; max: number } } = {}
+    staff.forEach((s) => {
+      newMemberMinMaxDays[s.id] = { min: bulkMinDays, max: bulkMaxDays }
+    })
+    setMemberMinMaxDays(newMemberMinMaxDays)
+    setIsBulkSettingOpen(false)
+  }
+
+  const handleUpdateMemberDays = (staffId: number, type: "min" | "max", value: number) => {
+    setMemberMinMaxDays((prev) => ({
+      ...prev,
+      [staffId]: {
+        ...prev[staffId],
+        [type]: value,
+      },
+    }))
+  }
+
+  // 5. カスタムルール設定
+  const [customRules, setCustomRules] = useState<any>({}) // Placeholder for complex rules
+
+  // 6. 入力内容の確認
+  const [isConfirmationModalOpen, setIsConfirmationModalOpen] = useState(false)
+
+  const handleGenerateSchedule = () => {
+    console.log("Generating schedule with current settings:", {
+      selectedYear,
+      selectedMonth,
+      workPatterns,
+      dailyWorkPatterns,
+      holidays,
+      memberMinMaxDays,
+      customRules,
+    })
+    alert("スケジュールを生成しました！ (実際にはカレンダービューに切り替わります)")
+    // TODO: Switch to generated schedule view
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>シフトスケジューラー設定</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-8">
+        {/* 1. 期間設定 */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold">1. 期間設定</h3>
+          <div className="flex gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="select-year">年</Label>
+              <Select value={selectedYear} onValueChange={setSelectedYear}>
+                <SelectTrigger className="w-[120px]">
+                  <SelectValue placeholder="年を選択" />
+                </SelectTrigger>
+                <SelectContent>
+                  {years.map((year) => (
+                    <SelectItem key={year} value={year}>
+                      {year}年
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="select-month">月</Label>
+              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                <SelectTrigger className="w-[120px]">
+                  <SelectValue placeholder="月を選択" />
+                </SelectTrigger>
+                <SelectContent>
+                  {months.map((month) => (
+                    <SelectItem key={month} value={month}>
+                      {Number.parseInt(month)}月
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+
+        {/* 2. 勤務形態設定 */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold">2. 勤務形態設定</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {workPatterns.map((pattern) => (
+              <Card key={pattern.id}>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-base font-medium">{pattern.name}</CardTitle>
+                  <Badge variant="secondary">
+                    {pattern.startTime}-{pattern.endTime}
+                  </Badge>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>最少人数:</Label>
+                    <Select
+                      value={pattern.minStaff.toString()}
+                      onValueChange={(val) =>
+                        handleUpdateWorkPatternStaffCount(pattern.id, "min", Number.parseInt(val))
+                      }
+                    >
+                      <SelectTrigger className="w-[80px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: 21 }, (_, i) => i).map((num) => (
+                          <SelectItem key={num} value={num.toString()}>
+                            {num}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label>最大人数:</Label>
+                    <Select
+                      value={pattern.maxStaff.toString()}
+                      onValueChange={(val) =>
+                        handleUpdateWorkPatternStaffCount(pattern.id, "max", Number.parseInt(val))
+                      }
+                    >
+                      <SelectTrigger className="w-[80px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: 21 }, (_, i) => i).map((num) => (
+                          <SelectItem key={num} value={num.toString()}>
+                            {num}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          <Dialog open={isAddCustomWorkPatternOpen} onOpenChange={setIsAddCustomWorkPatternOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline">
+                <Plus className="h-4 w-4 mr-2" />
+                カスタム勤務形態を追加
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>カスタム勤務形態を追加</DialogTitle>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="custom-pattern-name">勤務名称 *</Label>
+                  <Input
+                    id="custom-pattern-name"
+                    value={newWorkPatternName}
+                    onChange={(e) => setNewWorkPatternName(e.target.value)}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="custom-pattern-start">開始時刻 *</Label>
+                    <Input
+                      id="custom-pattern-start"
+                      type="time"
+                      value={newWorkPatternStartTime}
+                      onChange={(e) => setNewWorkPatternStartTime(e.target.value)}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="custom-pattern-end">終了時刻 *</Label>
+                    <Input
+                      id="custom-pattern-end"
+                      type="time"
+                      value={newWorkPatternEndTime}
+                      onChange={(e) => setNewWorkPatternEndTime(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="custom-pattern-min">最少人数</Label>
+                    <Select
+                      value={newWorkPatternMinStaff.toString()}
+                      onValueChange={(val) => setNewWorkPatternMinStaff(Number.parseInt(val))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: 21 }, (_, i) => i).map((num) => (
+                          <SelectItem key={num} value={num.toString()}>
+                            {num}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="custom-pattern-max">最大人数</Label>
+                    <Select
+                      value={newWorkPatternMaxStaff.toString()}
+                      onValueChange={(val) => setNewWorkPatternMaxStaff(Number.parseInt(val))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: 21 }, (_, i) => i).map((num) => (
+                          <SelectItem key={num} value={num.toString()}>
+                            {num}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                <Button variant="outline" onClick={() => setIsAddCustomWorkPatternOpen(false)}>
+                  キャンセル
+                </Button>
+                <Button onClick={handleAddCustomWorkPattern}>追加</Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+
+        {/* 3. 勤務カレンダー設定 */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold">3. 勤務カレンダー設定</h3>
+          <div className="grid grid-cols-7 gap-2 text-center text-base">
+            {["月", "火", "水", "木", "金", "土", "日"].map((day) => (
+              <div key={day} className="font-medium text-gray-500 dark:text-gray-400 py-2">
+                {day}
+              </div>
+            ))}
+            {calendarDays.map((day, index) => {
+              const dateString = day ? `${selectedYear}-${selectedMonth}-${String(day).padStart(2, "0")}` : ""
+              const isHoliday = day && holidays.includes(dateString)
+              const patternsForDay = dailyWorkPatterns[dateString] || []
+
+              return (
+                <Popover key={index}>
+                  <PopoverTrigger asChild>
+                    <div
+                      className={cn(
+                        "p-3 rounded-md aspect-square flex flex-col items-center justify-center border cursor-pointer",
+                        day ? "text-gray-700 dark:text-gray-300" : "opacity-0 pointer-events-none",
+                        isHoliday && "bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-200",
+                        patternsForDay.length > 0 &&
+                          "bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200 font-semibold",
+                      )}
+                      onClick={() => handleDayClick(day)}
+                    >
+                      {day}
+                      {patternsForDay.length > 0 && (
+                        <div className="text-xs mt-1 space-y-0.5">
+                          {patternsForDay.map((pId) => {
+                            const pattern = workPatterns.find((wp) => wp.id === pId)
+                            return pattern ? (
+                              <span key={pId} className="block">
+                                {pattern.name}
+                              </span>
+                            ) : null
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </PopoverTrigger>
+                  {day && (
+                    <PopoverContent className="w-auto p-2">
+                      <div className="grid gap-2">
+                        <div className="font-medium text-sm mb-1">勤務形態を選択</div>
+                        {workPatterns.map((pattern) => (
+                          <div key={pattern.id} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`pattern-${dateString}-${pattern.id}`}
+                              checked={dailyWorkPatterns[dateString]?.includes(pattern.id) || false}
+                              onCheckedChange={(checked) => {
+                                const current = dailyWorkPatterns[dateString] || []
+                                setDailyWorkPatterns((prev) => ({
+                                  ...prev,
+                                  [dateString]: checked
+                                    ? [...current, pattern.id]
+                                    : current.filter((id) => id !== pattern.id),
+                                }))
+                              }}
+                            />
+                            <label
+                              htmlFor={`pattern-${dateString}-${pattern.id}`}
+                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                            >
+                              {pattern.name}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    </PopoverContent>
+                  )}
+                </Popover>
+              )
+            })}
+          </div>
+          <div className="flex gap-2 mt-4">
+            <Button variant="outline" onClick={handleApplyToAllDays}>
+              全日適用
+            </Button>
+            <Dialog open={isHolidayDialogOpen} onOpenChange={setIsHolidayDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline">祝日登録</Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-sm">
+                <DialogHeader>
+                  <DialogTitle>祝日を登録</DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="holiday-date">日付 *</Label>
+                    <Input
+                      id="holiday-date"
+                      type="date"
+                      value={newHolidayDate}
+                      onChange={(e) => setNewHolidayDate(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-3 pt-4 border-t">
+                  <Button variant="outline" onClick={() => setIsHolidayDialogOpen(false)}>
+                    キャンセル
+                  </Button>
+                  <Button onClick={handleAddHoliday}>登録</Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </div>
+
+        {/* 4. メンバー別勤務設定 */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold">4. メンバー別勤務設定</h3>
+          <div className="flex justify-end">
+            <Popover open={isBulkSettingOpen} onOpenChange={setIsBulkSettingOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline">一括設定</Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-4">
+                <div className="grid gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="bulk-min-days">最少日数</Label>
+                    <Select
+                      value={bulkMinDays.toString()}
+                      onValueChange={(val) => setBulkMinDays(Number.parseInt(val))}
+                    >
+                      <SelectTrigger className="w-[100px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: 31 }, (_, i) => i).map((num) => (
+                          <SelectItem key={num} value={num.toString()}>
+                            {num}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="bulk-max-days">最大日数</Label>
+                    <Select
+                      value={bulkMaxDays.toString()}
+                      onValueChange={(val) => setBulkMaxDays(Number.parseInt(val))}
+                    >
+                      <SelectTrigger className="w-[100px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: 31 }, (_, i) => i).map((num) => (
+                          <SelectItem key={num} value={num.toString()}>
+                            {num}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button onClick={handleBulkApplyDays}>適用</Button>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>氏名</TableHead>
+                <TableHead>役割</TableHead>
+                <TableHead>部署</TableHead>
+                <TableHead className="text-right">最少日数</TableHead>
+                <TableHead className="text-right">最大日数</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {staff.map((member) => (
+                <TableRow key={member.id}>
+                  <TableCell>{member.name}</TableCell>
+                  <TableCell>{member.role}</TableCell>
+                  <TableCell>{member.department}</TableCell>
+                  <TableCell className="text-right">
+                    <Select
+                      value={(memberMinMaxDays[member.id]?.min || 0).toString()}
+                      onValueChange={(val) => handleUpdateMemberDays(member.id, "min", Number.parseInt(val))}
+                    >
+                      <SelectTrigger className="w-[80px] float-right">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: 31 }, (_, i) => i).map((num) => (
+                          <SelectItem key={num} value={num.toString()}>
+                            {num}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Select
+                      value={(memberMinMaxDays[member.id]?.max || 0).toString()}
+                      onValueChange={(val) => handleUpdateMemberDays(member.id, "max", Number.parseInt(val))}
+                    >
+                      <SelectTrigger className="w-[80px] float-right">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: 31 }, (_, i) => i).map((num) => (
+                          <SelectItem key={num} value={num.toString()}>
+                            {num}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+
+        {/* 5. カスタムルール設定 */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold">5. カスタムルール設定</h3>
+          <Accordion type="single" collapsible className="w-full">
+            <AccordionItem value="item-1">
+              <AccordionTrigger>詳細ルールを編集</AccordionTrigger>
+              <AccordionContent className="space-y-4 p-4 border rounded-md mt-2">
+                <p className="text-sm text-muted-foreground">
+                  ここに勤務形態ごとの必要スキル数、特定スタッフの同シフト禁止、連続勤務日数上限、週末勤務回数上限などの設定フォームを配置します。
+                  設定内容はJSONでエクスポート／インポート可能です。
+                </p>
+                <div className="flex gap-2">
+                  <Button variant="outline">JSONエクスポート</Button>
+                  <Button variant="outline">JSONインポート</Button>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        </div>
+
+        {/* 6. 入力内容の確認 & 7. 生成スケジュール確認への遷移 */}
+        <div className="flex justify-end gap-3 pt-4 border-t">
+          <Dialog open={isConfirmationModalOpen} onOpenChange={setIsConfirmationModalOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline">入力内容を確認</Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>入力内容の確認</DialogTitle>
+              </DialogHeader>
+              <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto">
+                <h4 className="font-semibold">期間設定:</h4>
+                <p>
+                  {selectedYear}年 {Number.parseInt(selectedMonth)}月
+                </p>
+
+                <h4 className="font-semibold mt-4">勤務形態設定:</h4>
+                <ul className="list-disc pl-5">
+                  {workPatterns.map((wp) => (
+                    <li key={wp.id}>
+                      {wp.name} ({wp.startTime}-{wp.endTime}) - 最少: {wp.minStaff}名, 最大: {wp.maxStaff}名
+                    </li>
+                  ))}
+                </ul>
+
+                <h4 className="font-semibold mt-4">勤務カレンダー設定 (一部):</h4>
+                <p>各日の設定はカレンダー上で確認してください。</p>
+                <p>祝日: {holidays.join(", ")}</p>
+
+                <h4 className="font-semibold mt-4">メンバー別勤務設定 (一部):</h4>
+                <ul className="list-disc pl-5">
+                  {staff.map((s) => (
+                    <li key={s.id}>
+                      {s.name}: 最少 {memberMinMaxDays[s.id]?.min || 0}日, 最大 {memberMinMaxDays[s.id]?.max || 0}日
+                    </li>
+                  ))}
+                </ul>
+
+                <h4 className="font-semibold mt-4">カスタムルール設定:</h4>
+                <p>詳細ルールはアコーディオン内で設定されています。</p>
+              </div>
+              <div className="flex justify-between pt-4 border-t">
+                <Button variant="link" onClick={() => setIsConfirmationModalOpen(false)}>
+                  ← 戻る
+                </Button>
+                <Button
+                  onClick={() => {
+                    // TODO: マイ設定として保存
+                    alert("現在の設定を保存しました！")
+                  }}
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  マイ設定として保存
+                </Button>
+                <Button onClick={handleGenerateSchedule} className="bg-gradient-to-r from-blue-500 to-cyan-500">
+                  スケジュール生成
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
