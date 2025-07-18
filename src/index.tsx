@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
-import SimpleApp from './SimpleApp';
+import App from './App';
 import './index.css';
 
 // デバッグ用のコンソール出力
@@ -18,7 +18,7 @@ if (rootElement) {
   try {
     ReactDOM.render(
       <React.StrictMode>
-        <SimpleApp />
+        <App />
       </React.StrictMode>,
       rootElement
     );

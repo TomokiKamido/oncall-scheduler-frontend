@@ -375,6 +375,7 @@ export function ShiftCreationForm({ departments, staff, onCancel, onSuccess }: S
 
     setFormData((prev) => {
       const newMemberMinMaxDays = { ...prev.memberMinMaxDays }
+      // @ts-ignore - staff is passed as props
       staff.forEach((s) => {
         newMemberMinMaxDays[s.id] = {
           ...(newMemberMinMaxDays[s.id] || {}),
